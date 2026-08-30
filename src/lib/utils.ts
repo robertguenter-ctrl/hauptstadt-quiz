@@ -25,14 +25,14 @@ export function flagEmoji(isoCode: string): string {
   return String.fromCodePoint(...points);
 }
 
-/** Mehrere Quellen — flagcdn.com ist am Mac oft blockiert. */
+/** Rechteckige Flaggen (3:2) — keine Kreis-Flaggen. */
 export function flagSources(isoCode: string): string[] {
   const iso = isoCode.toLowerCase();
   const ISO = isoCode.toUpperCase();
   return [
-    `https://hatscripts.github.io/circle-flags/flags/${iso}.svg`,
-    `https://flagsapi.com/${ISO}/flat/64.png`,
     `https://flagcdn.com/w320/${iso}.png`,
+    `https://flagsapi.com/${ISO}/flat/64.png`,
+    `https://flagsapi.com/${ISO}/shiny/64.png`,
   ];
 }
 

@@ -11,9 +11,9 @@ interface FlagImageProps {
 }
 
 const sizeClasses = {
-  lg: "h-48 w-48",
-  sm: "h-16 w-16",
-  tile: "h-16 w-16",
+  lg: "h-36 w-auto aspect-[3/2]",
+  sm: "h-12 w-auto aspect-[3/2]",
+  tile: "h-12 w-auto aspect-[3/2]",
 };
 
 export function FlagImage({ isoCode, size = "lg", className, alt = "" }: FlagImageProps) {
@@ -25,9 +25,9 @@ export function FlagImage({ isoCode, size = "lg", className, alt = "" }: FlagIma
     return (
       <span
         className={cn(
-          "flex items-center justify-center rounded-xl border border-white/20 bg-white/5 shadow-2xl",
+          "flex items-center justify-center rounded-md border border-white/20 bg-white/5 shadow-lg",
           sizeClasses[size],
-          size === "lg" ? "text-8xl" : "text-5xl",
+          size === "lg" ? "text-7xl" : "text-4xl",
           className,
         )}
         aria-label={alt}
@@ -43,7 +43,7 @@ export function FlagImage({ isoCode, size = "lg", className, alt = "" }: FlagIma
       alt={alt}
       referrerPolicy="no-referrer"
       className={cn(
-        "rounded-xl border border-white/20 object-cover shadow-2xl",
+        "rounded-md border border-white/20 bg-white/5 object-contain shadow-lg",
         sizeClasses[size],
         className,
       )}

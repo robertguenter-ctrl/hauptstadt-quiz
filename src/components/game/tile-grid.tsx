@@ -1,7 +1,35 @@
 import { cn } from "@/lib/utils";
-import type { GamePhase, Question } from "@/lib/game/types";
+import { PLAYER_COLORS, type GamePhase, type Question } from "@/lib/game/types";
 import { QUESTION_TYPE_LABELS } from "@/lib/game/types";
 import { FlagImage } from "@/components/game/flag-image";
+
+interface ActivePlayerBannerProps {
+  playerSlot: number;
+  phase: GamePhase;
+  timer?: number;
+}
+
+export function ActivePlayerBanner({ playerSlot, phase, timer }: ActivePlayerBannerProps) {
+  const colors = PLAYER_COLORS[playerSlot];
+
+  return (
+    <div
+      className={cn(
+        "mb-6 rounded-2xl px-8 py-5 text-center ring-4",
+        colors.ring,
+        "bg-white/5",
+      )}
+    >
+      <p className="text-sm font-semibold uppercase tracking-widest text-white/50">
+        {phase === "answering" ? "Am Zug" : "Antwort von"}
+      </p>
+      <p className={cn("text-6xl font-black", colors.text)}>{colors.name}</p>
+      {phase === "answering" && timer !== undefined && (
+        <p className="mt-1 text-3xl font-bold tabular-nums text-white/80">{timer}s</p>
+      )}
+    </div>
+  );
+}
 
 interface TileGridProps {
   question: Question;

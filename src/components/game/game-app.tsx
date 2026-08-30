@@ -15,7 +15,7 @@ import {
   WaitingForGamepadBanner,
 } from "@/components/game/gamepad-activate-overlay";
 import { Scoreboard } from "@/components/game/scoreboard";
-import { QuestionDisplay, TileGrid } from "@/components/game/tile-grid";
+import { QuestionDisplay, TileGrid, ActivePlayerBanner } from "@/components/game/tile-grid";
 import { cn } from "@/lib/utils";
 import { useKeyboardFallback } from "@/lib/gamepad/use-keyboard-fallback";
 
@@ -223,6 +223,18 @@ export function GameApp() {
 
       <Scoreboard players={state.players} activeSlot={state.activePlayerSlot} />
 
+      {state.phase === "answering" && state.activePlayerSlot !== null && (
+        <ActivePlayerBanner
+          playerSlot={state.activePlayerSlot}
+          phase="answering"
+          timer={state.timer}
+        />
+      )}
+
+      {state.phase === "result" && state.lastResult && (
+        <ActivePlayerBanner playerSlot={state.lastResult.playerSlot} phase="result" />
+      )}
+
       <div className="flex flex-1 flex-col items-center justify-center gap-10 py-8">
         {state.question && (
           <QuestionDisplay
@@ -231,7 +243,7 @@ export function GameApp() {
             countdown={state.timer}
           />
         )}
-        {state.question && state.phase !== "countdown" && (
+        {state.question && (state.phase === "answering" || state.phase === "result") && (
           <TileGrid
             question={state.question}
             selectedIndex={state.selectedTileIndex}
