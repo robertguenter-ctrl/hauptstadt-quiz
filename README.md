@@ -42,6 +42,8 @@ Ohne Supabase funktioniert das Spiel mit den eingebauten Länderdaten.
 3. Einmal einen Controller-Knopf drücken (Browser-Berechtigung)
 4. Zuerst `/test/gamepad` testen, ob alle 4 Controller erkannt werden
 
+**Hinweis Mac:** Der Nintendo Pro Controller funktioniert in Chrome am Mac oft nur per USB, nicht per Bluetooth. Das ist eine macOS/Browser-Einschränkung — am Android TV ist Bluetooth der normale Weg.
+
 ## Deployment (Vercel)
 
 1. Repo auf GitHub pushen

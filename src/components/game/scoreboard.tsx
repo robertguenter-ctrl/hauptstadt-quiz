@@ -1,4 +1,4 @@
-import { cn, flagUrl } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { PLAYER_COLORS, type Player } from "@/lib/game/types";
 
 interface ScoreboardProps {
@@ -32,26 +32,5 @@ export function Scoreboard({ players, activeSlot }: ScoreboardProps) {
         );
       })}
     </div>
-  );
-}
-
-interface FlagImageProps {
-  isoCode: string;
-  size?: "sm" | "lg";
-  className?: string;
-}
-
-export function FlagImage({ isoCode, size = "lg", className }: FlagImageProps) {
-  const width = size === "lg" ? 480 : 160;
-  return (
-    <img
-      src={flagUrl(isoCode, width)}
-      alt=""
-      className={cn(
-        "rounded-xl border border-white/20 object-cover shadow-2xl",
-        size === "lg" ? "h-48 w-80" : "h-16 w-28",
-        className,
-      )}
-    />
   );
 }

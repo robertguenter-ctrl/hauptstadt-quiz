@@ -62,8 +62,8 @@ export const PLAYER_COLORS = [
 ] as const;
 
 export const QUESTION_TYPE_LABELS: Record<QuestionType, string> = {
-  flag_to_country: "Nenne das Land zur Flagge",
-  country_to_flag: "Wähle die Flagge zum Land",
-  country_to_capital: "Nenne die Hauptstadt",
-  capital_to_country: "Nenne das Land zur Hauptstadt",
+  flag_to_country: "Welches Land hat diese Flagge?",
+  country_to_flag: "Welche Flagge gehört zu diesem Land?",
+  country_to_capital: "Was ist die Hauptstadt dieses Landes?",
+  capital_to_country: "Zu welchem Land gehört diese Hauptstadt?",
 };

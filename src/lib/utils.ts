@@ -18,6 +18,25 @@ export function pickRandom<T>(items: T[]): T {
   return items[Math.floor(Math.random() * items.length)];
 }
 
+export function flagEmoji(isoCode: string): string {
+  const code = isoCode.toUpperCase();
+  if (code.length !== 2) return "🏳️";
+  const points = [...code].map((char) => 0x1f1e6 + char.charCodeAt(0) - 65);
+  return String.fromCodePoint(...points);
+}
+
+/** Mehrere Quellen — flagcdn.com ist am Mac oft blockiert. */
+export function flagSources(isoCode: string): string[] {
+  const iso = isoCode.toLowerCase();
+  const ISO = isoCode.toUpperCase();
+  return [
+    `https://hatscripts.github.io/circle-flags/flags/${iso}.svg`,
+    `https://flagsapi.com/${ISO}/flat/64.png`,
+    `https://flagcdn.com/w320/${iso}.png`,
+  ];
+}
+
+/** @deprecated use flagSources */
 export function flagUrl(isoCode: string, width = 320): string {
   return `https://flagcdn.com/w${width}/${isoCode.toLowerCase()}.png`;
 }

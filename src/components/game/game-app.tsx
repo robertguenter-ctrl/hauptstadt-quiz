@@ -3,20 +3,26 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getPlayableCountries } from "@/lib/countries";
 import { fetchCountriesFromSupabase } from "@/lib/supabase/client";
-import { DEFAULT_CONFIG, PLAYER_COLORS, QUESTION_TYPE_LABELS } from "@/lib/game/types";
+import { PLAYER_COLORS, QUESTION_TYPE_LABELS } from "@/lib/game/types";
 import { useGameEngine } from "@/lib/game/use-game-engine";
 import {
   getNavigationDirection,
+  isConfirmButton,
   useGamepads,
 } from "@/lib/gamepad/use-gamepads";
+import {
+  GamepadActivateOverlay,
+  WaitingForGamepadBanner,
+} from "@/components/game/gamepad-activate-overlay";
 import { Scoreboard } from "@/components/game/scoreboard";
 import { QuestionDisplay, TileGrid } from "@/components/game/tile-grid";
 import { cn } from "@/lib/utils";
+import { useKeyboardFallback } from "@/lib/gamepad/use-keyboard-fallback";
 
 export function GameApp() {
   const [countryPool, setCountryPool] = useState(getPlayableCountries());
   const { state, dispatch } = useGameEngine(countryPool);
-  const { gamepads, wasAnyBuzzerPressed, wasButtonPressed } = useGamepads();
+  const { gamepads, userActivated, activate, consumePresses, supportsGamepad } = useGamepads();
   const prevAxesRef = useRef<Map<number, number[]>>(new Map());
   const lobbyStartedRef = useRef(false);
 
@@ -27,53 +33,68 @@ export function GameApp() {
   }, []);
 
   const joinedCount = state.players.filter((p) => p.joined).length;
-  const canStart = joinedCount >= 2;
+  const canStart = joinedCount >= 1;
+  const keyboardEnabled = gamepads.length === 0;
+
+  useKeyboardFallback(keyboardEnabled, (action) => {
+    if (state.phase === "lobby" && action.type === "confirm") {
+      dispatch({ type: "JOIN_PLAYER", gamepadIndex: -1 });
+      return;
+    }
+    if (state.phase === "buzzer" && action.type === "confirm") {
+      const player = state.players.find((p) => p.joined && p.gamepadIndex === -1);
+      if (player && !state.excludedSlots.includes(player.slot)) {
+        dispatch({ type: "BUZZ", playerSlot: player.slot });
+      }
+      return;
+    }
+    if (state.phase === "answering" && state.activePlayerSlot !== null) {
+      const player = state.players[state.activePlayerSlot];
+      if (player?.gamepadIndex !== -1) return;
+      if (action.type === "navigate" && action.direction) {
+        dispatch({ type: "NAVIGATE_TILE", direction: action.direction });
+      }
+      if (action.type === "confirm") {
+        dispatch({ type: "CONFIRM_ANSWER" });
+      }
+    }
+  });
 
   useEffect(() => {
     if (state.phase !== "lobby") return;
 
-    for (const pad of gamepads) {
-      if (wasAnyBuzzerPressed(pad.index)) {
-        dispatch({ type: "JOIN_PLAYER", gamepadIndex: pad.index });
-      }
+    for (const press of consumePresses()) {
+      dispatch({ type: "JOIN_PLAYER", gamepadIndex: press.gamepadIndex });
     }
-  }, [gamepads, state.phase, wasAnyBuzzerPressed, dispatch]);
+  }, [gamepads, state.phase, consumePresses, dispatch]);
 
   useEffect(() => {
     if (state.phase !== "lobby" || !canStart || lobbyStartedRef.current) return;
 
-    const allJoinedHavePads = state.players
-      .filter((p) => p.joined)
-      .every((p) => p.gamepadIndex !== null);
-
-    if (allJoinedHavePads && joinedCount >= 2) {
-      const timeout = window.setTimeout(() => {
-        lobbyStartedRef.current = true;
-        dispatch({ type: "START_GAME" });
-      }, 2000);
-      return () => window.clearTimeout(timeout);
-    }
-  }, [state.phase, state.players, canStart, joinedCount, dispatch]);
+    const timeout = window.setTimeout(() => {
+      lobbyStartedRef.current = true;
+      dispatch({ type: "START_GAME" });
+    }, 2000);
+    return () => window.clearTimeout(timeout);
+  }, [state.phase, canStart, joinedCount, dispatch]);
 
   useEffect(() => {
     if (state.phase !== "buzzer") return;
 
-    for (const player of state.players) {
-      if (!player.joined || player.gamepadIndex === null) continue;
-      if (state.excludedSlots.includes(player.slot)) continue;
-
-      if (wasAnyBuzzerPressed(player.gamepadIndex)) {
-        dispatch({ type: "BUZZ", playerSlot: player.slot });
-        break;
-      }
+    for (const press of consumePresses()) {
+      const player = state.players.find((p) => p.gamepadIndex === press.gamepadIndex);
+      if (!player?.joined || state.excludedSlots.includes(player.slot)) continue;
+      dispatch({ type: "BUZZ", playerSlot: player.slot });
+      break;
     }
-  }, [gamepads, state.phase, state.players, state.excludedSlots, wasAnyBuzzerPressed, dispatch]);
+  }, [gamepads, state.phase, state.players, state.excludedSlots, consumePresses, dispatch]);
 
   useEffect(() => {
     if (state.phase !== "answering" || state.activePlayerSlot === null) return;
 
     const player = state.players[state.activePlayerSlot];
     if (!player || player.gamepadIndex === null) return;
+
     const padIndex = player.gamepadIndex;
     const pad = gamepads.find((g) => g.index === padIndex);
     if (!pad) return;
@@ -86,10 +107,14 @@ export function GameApp() {
       dispatch({ type: "NAVIGATE_TILE", direction });
     }
 
-    if (wasButtonPressed(padIndex, 0) || wasButtonPressed(padIndex, 1)) {
-      dispatch({ type: "CONFIRM_ANSWER" });
+    for (const press of consumePresses()) {
+      if (press.gamepadIndex !== padIndex) continue;
+      if (isConfirmButton(press.buttonIndex)) {
+        dispatch({ type: "CONFIRM_ANSWER" });
+        break;
+      }
     }
-  }, [gamepads, state.phase, state.activePlayerSlot, state.players, wasButtonPressed, dispatch]);
+  }, [gamepads, state.phase, state.activePlayerSlot, state.players, consumePresses, dispatch]);
 
   const phaseLabel = useMemo(() => {
     switch (state.phase) {
@@ -112,34 +137,44 @@ export function GameApp() {
 
   if (state.phase === "lobby") {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-10 bg-slate-950 px-8 text-white">
-        <div className="text-center">
-          <h1 className="text-6xl font-black tracking-tight">Hauptstadt-Quiz</h1>
-          <p className="mt-4 text-2xl text-white/70">Wer zuerst 10 Punkte hat, gewinnt</p>
+      <>
+        <GamepadActivateOverlay visible={supportsGamepad && !userActivated} onActivate={activate} />
+        <div className="flex min-h-screen flex-col items-center justify-center gap-10 bg-slate-950 px-8 text-white">
+          <WaitingForGamepadBanner visible={userActivated && gamepads.length === 0} />
+          <div className="text-center">
+            <h1 className="text-6xl font-black tracking-tight">Hauptstadt-Quiz</h1>
+            <p className="mt-4 text-2xl text-white/70">Wer zuerst 10 Punkte hat, gewinnt</p>
+          </div>
+
+          <Scoreboard players={state.players} />
+
+          <p className="text-3xl font-medium text-amber-300">{phaseLabel}</p>
+
+          <div className="text-center text-white/50">
+            <p>{gamepads.length} Controller erkannt</p>
+            {gamepads[0] && (
+              <p className="mt-1 font-mono text-sm text-white/40">{gamepads[0].id}</p>
+            )}
+            <p className="mt-2 text-lg">9 Antwort-Kacheln · −1 bei Fehler · Solo-Test möglich</p>
+            {keyboardEnabled && userActivated && (
+              <p className="mt-2 text-amber-300">Kein Controller? Leertaste = Beitreten/Buzzern</p>
+            )}
+          </div>
+
+          {canStart && joinedCount >= 1 && (
+            <p className="animate-pulse text-xl text-green-400">Bereit — Spiel startet gleich …</p>
+          )}
+
+          <button
+            type="button"
+            onClick={() => dispatch({ type: "START_GAME" })}
+            disabled={!canStart}
+            className="rounded-xl bg-amber-500 px-8 py-4 text-xl font-bold text-black disabled:opacity-30"
+          >
+            Manuell starten
+          </button>
         </div>
-
-        <Scoreboard players={state.players} />
-
-        <p className="text-3xl font-medium text-amber-300">{phaseLabel}</p>
-
-        <div className="text-center text-white/50">
-          <p>{gamepads.length} Controller erkannt</p>
-          <p className="mt-2 text-lg">Mindestens 2 Spieler · 9 Antwort-Kacheln · −1 bei Fehler</p>
-        </div>
-
-        {canStart && (
-          <p className="animate-pulse text-xl text-green-400">Alle bereit — Spiel startet gleich …</p>
-        )}
-
-        <button
-          type="button"
-          onClick={() => dispatch({ type: "START_GAME" })}
-          disabled={!canStart}
-          className="rounded-xl bg-amber-500 px-8 py-4 text-xl font-bold text-black disabled:opacity-30"
-        >
-          Manuell starten
-        </button>
-      </div>
+      </>
     );
   }
 
@@ -189,8 +224,14 @@ export function GameApp() {
       <Scoreboard players={state.players} activeSlot={state.activePlayerSlot} />
 
       <div className="flex flex-1 flex-col items-center justify-center gap-10 py-8">
-        {state.question && <QuestionDisplay question={state.question} />}
         {state.question && (
+          <QuestionDisplay
+            question={state.question}
+            phase={state.phase}
+            countdown={state.timer}
+          />
+        )}
+        {state.question && state.phase !== "countdown" && (
           <TileGrid
             question={state.question}
             selectedIndex={state.selectedTileIndex}

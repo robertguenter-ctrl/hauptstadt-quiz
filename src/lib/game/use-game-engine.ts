@@ -102,7 +102,7 @@ function reducer(
   switch (action.type) {
     case "JOIN_PLAYER": {
       if (state.phase !== "lobby") return state;
-      if (state.players.some((p) => p.gamepadIndex === action.gamepadIndex)) {
+      if (action.gamepadIndex >= 0 && state.players.some((p) => p.gamepadIndex === action.gamepadIndex)) {
         return state;
       }
       const nextSlot = state.players.findIndex((p) => !p.joined);
@@ -118,7 +118,7 @@ function reducer(
 
     case "START_GAME": {
       const joinedCount = state.players.filter((p) => p.joined).length;
-      if (joinedCount < 2) return state;
+      if (joinedCount < 1) return state;
       return startNewQuestion(state, pool);
     }
 
