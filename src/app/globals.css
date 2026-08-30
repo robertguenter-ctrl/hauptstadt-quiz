@@ -22,3 +22,19 @@ body {
 * {
   -webkit-tap-highlight-color: transparent;
 }
+
+@keyframes correct-blink {
+  0%,
+  100% {
+    box-shadow: 0 0 0 4px rgb(74 222 128 / 0.9);
+    border-color: rgb(74 222 128 / 0.9);
+  }
+  50% {
+    box-shadow: 0 0 0 14px rgb(74 222 128 / 0.15);
+    border-color: rgb(134 239 172 / 0.5);
+  }
+}
+
+.animate-correct-blink {
+  animation: correct-blink 0.75s ease-in-out infinite;
+}

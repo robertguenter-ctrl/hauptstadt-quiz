@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { PLAYER_COLORS, QUESTION_TYPE_LABELS } from "@/lib/game/types";
 import { AnswerTouchpad } from "@/components/game/answer-touchpad";
+import { usePlayerBuzzAudio } from "@/lib/audio/use-game-audio";
+import { resumeAudio } from "@/lib/audio/game-sounds";
 import { useRoomPlayer } from "@/lib/room/use-room";
 import { cn } from "@/lib/utils";
 
@@ -14,6 +16,8 @@ export function PlayerApp({ roomCode }: PlayerAppProps) {
   const { player, gameState, error, joining, join, buzz, selectTile, confirmAnswer } =
     useRoomPlayer(roomCode);
   const [name, setName] = useState("");
+
+  usePlayerBuzzAudio(gameState, player?.slot ?? -1);
 
   if (!player) {
     return (
@@ -85,7 +89,10 @@ export function PlayerApp({ roomCode }: PlayerAppProps) {
         ) : (
           <button
             type="button"
-            onClick={() => void buzz()}
+            onClick={() => {
+              resumeAudio();
+              void buzz();
+            }}
             className="flex h-64 w-64 items-center justify-center rounded-full bg-red-600 text-4xl font-black shadow-lg shadow-red-900/50 active:scale-95"
           >
             BUZZ

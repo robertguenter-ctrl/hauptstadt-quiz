@@ -5,6 +5,8 @@ import { getPlayableCountries } from "@/lib/countries";
 import { fetchCountriesFromSupabase } from "@/lib/supabase/client";
 import { PLAYER_COLORS, QUESTION_TYPE_LABELS } from "@/lib/game/types";
 import { useGameEngine } from "@/lib/game/use-game-engine";
+import { useHostGameAudio } from "@/lib/audio/use-game-audio";
+import { resumeAudio } from "@/lib/audio/game-sounds";
 import { useRoomHost } from "@/lib/room/use-room";
 import { joinUrl, qrCodeImageUrl } from "@/lib/room/codes";
 import { Scoreboard } from "@/components/game/scoreboard";
@@ -22,6 +24,7 @@ export function HostGameApp({ roomCode }: HostGameAppProps) {
   const joinLink = joinUrl(roomCode);
 
   useRoomHost(roomCode, state, dispatch);
+  useHostGameAudio(state);
 
   useEffect(() => {
     fetchCountriesFromSupabase().then((remote) => {
@@ -88,7 +91,10 @@ export function HostGameApp({ roomCode }: HostGameAppProps) {
 
         <button
           type="button"
-          onClick={() => dispatch({ type: "START_GAME" })}
+          onClick={() => {
+            resumeAudio();
+            dispatch({ type: "START_GAME" });
+          }}
           disabled={!canStart}
           className="rounded-xl bg-amber-500 px-8 py-4 text-xl font-bold text-black disabled:opacity-30"
         >
@@ -149,6 +155,7 @@ export function HostGameApp({ roomCode }: HostGameAppProps) {
           playerName={playerName(state.activePlayerSlot)}
           phase="answering"
           timer={state.timer}
+          correctSelected={state.question?.tiles[state.selectedTileIndex]?.isCorrect ?? false}
         />
       )}
 

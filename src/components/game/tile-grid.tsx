@@ -8,23 +8,33 @@ interface ActivePlayerBannerProps {
   playerName: string;
   phase: GamePhase;
   timer?: number;
+  correctSelected?: boolean;
 }
 
-export function ActivePlayerBanner({ playerSlot, playerName, phase, timer }: ActivePlayerBannerProps) {
+export function ActivePlayerBanner({
+  playerSlot,
+  playerName,
+  phase,
+  timer,
+  correctSelected = false,
+}: ActivePlayerBannerProps) {
   const colors = PLAYER_COLORS[playerSlot];
 
   return (
     <div
       className={cn(
-        "mb-6 rounded-2xl px-8 py-5 text-center ring-4",
-        colors.ring,
-        "bg-white/5",
+        "mb-6 rounded-2xl border-4 px-8 py-5 text-center transition-colors",
+        correctSelected
+          ? "animate-correct-blink border-green-400 bg-green-500/10"
+          : cn("ring-4", colors.ring, "bg-white/5 border-transparent"),
       )}
     >
       <p className="text-sm font-semibold uppercase tracking-widest text-white/50">
         {phase === "answering" ? "Am Zug" : "Antwort von"}
       </p>
-      <p className={cn("text-6xl font-black", colors.text)}>{playerName}</p>
+      <p className={cn("text-6xl font-black", correctSelected ? "text-green-400" : colors.text)}>
+        {playerName}
+      </p>
       {phase === "answering" && timer !== undefined && (
         <p className="mt-1 text-3xl font-bold tabular-nums text-white/80">{timer}s</p>
       )}
