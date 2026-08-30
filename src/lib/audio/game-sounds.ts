@@ -48,9 +48,12 @@ export function speakPlayerName(name: string): void {
   if (typeof window === "undefined" || !window.speechSynthesis) return;
   window.speechSynthesis.cancel();
   const utterance = new SpeechSynthesisUtterance(name);
-  utterance.lang = "de-DE";
+  utterance.lang = "en-US";
   utterance.rate = 1.05;
   utterance.pitch = 1;
+  const voices = window.speechSynthesis.getVoices();
+  const englishVoice = voices.find((v) => v.lang.startsWith("en"));
+  if (englishVoice) utterance.voice = englishVoice;
   window.speechSynthesis.speak(utterance);
 }
 

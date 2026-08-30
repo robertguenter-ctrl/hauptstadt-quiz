@@ -42,10 +42,16 @@ export function ActivePlayerBanner({
 interface TileGridProps {
   question: Question;
   selectedIndex: number;
-  showCorrect?: boolean;
+  revealCorrect?: boolean;
+  showWrongSelection?: boolean;
 }
 
-export function TileGrid({ question, selectedIndex, showCorrect = false }: TileGridProps) {
+export function TileGrid({
+  question,
+  selectedIndex,
+  revealCorrect = false,
+  showWrongSelection = false,
+}: TileGridProps) {
   const showFlags = question.type === "country_to_flag";
 
   return (
@@ -53,8 +59,8 @@ export function TileGrid({ question, selectedIndex, showCorrect = false }: TileG
       {question.tiles.map((tile, index) => {
         const isSelected = index === selectedIndex;
         const isCorrect = tile.isCorrect;
-        const highlightCorrect = showCorrect && isCorrect;
-        const highlightWrong = showCorrect && isSelected && !isCorrect;
+        const highlightCorrect = revealCorrect && isCorrect;
+        const highlightWrong = showWrongSelection && isSelected && !isCorrect;
 
         return (
           <button
@@ -63,7 +69,7 @@ export function TileGrid({ question, selectedIndex, showCorrect = false }: TileG
             className={cn(
               "flex min-h-[7rem] items-center justify-center rounded-2xl border-4 px-4 py-3 text-center text-2xl font-semibold transition-all",
               "bg-white/10 border-white/20",
-              isSelected && !showCorrect && "scale-105 border-amber-400 bg-amber-400/20 ring-4 ring-amber-400/50",
+              isSelected && !revealCorrect && !showWrongSelection && "scale-105 border-amber-400 bg-amber-400/20 ring-4 ring-amber-400/50",
               highlightCorrect && "animate-correct-blink border-green-400 bg-green-500/30",
               highlightWrong && "border-red-400 bg-red-500/30",
             )}

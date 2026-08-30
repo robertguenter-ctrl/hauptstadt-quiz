@@ -157,6 +157,11 @@ export function PlayerApp({ roomCode }: PlayerAppProps) {
   if (phase === "result") {
     const correct = gameState?.lastResult?.correct;
     const wasMe = gameState?.lastResult?.playerSlot === player.slot;
+    const othersCanStillPlay =
+      !correct &&
+      (gameState?.players.some(
+        (p) => p.joined && !gameState.excludedSlots.includes(p.slot),
+      ) ?? false);
 
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-slate-950 p-6 text-white">
@@ -165,7 +170,13 @@ export function PlayerApp({ roomCode }: PlayerAppProps) {
             {correct ? "Richtig!" : "Falsch!"}
           </p>
         )}
-        {!wasMe && <p className="text-white/60">Nächste Runde …</p>}
+        {!wasMe && othersCanStillPlay && (
+          <p className="text-center text-white/70">Falsch — gleich kannst du wieder buzzern!</p>
+        )}
+        {!wasMe && !othersCanStillPlay && !correct && (
+          <p className="text-white/60">Niemand hat&apos;s gewusst …</p>
+        )}
+        {!wasMe && correct && <p className="text-white/60">Nächste Runde …</p>}
         <p className={cn("text-xl", colors.text)}>{player.name}: {gameState?.players[player.slot]?.score} Punkte</p>
       </div>
     );

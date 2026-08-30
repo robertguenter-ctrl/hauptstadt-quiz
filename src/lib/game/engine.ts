@@ -59,6 +59,22 @@ function checkWinner(players: Player[], config: GameConfig): number | null {
   return winner?.slot ?? null;
 }
 
+export function allJoinedExcluded(state: GameState): boolean {
+  const joinedSlots = state.players.filter((p) => p.joined).map((p) => p.slot);
+  return joinedSlots.length > 0 && joinedSlots.every((slot) => state.excludedSlots.includes(slot));
+}
+
+function continueSameQuestion(state: GameState): GameState {
+  return {
+    ...state,
+    phase: "buzzer",
+    activePlayerSlot: null,
+    selectedTileIndex: 4,
+    timer: 0,
+    lastResult: null,
+  };
+}
+
 function applyWrongAnswer(state: GameState, config: GameConfig): GameState {
   if (state.activePlayerSlot === null) return state;
 
@@ -141,18 +157,11 @@ export function gameReducer(
             return startNewQuestion(state, pool);
           }
 
-          const joinedSlots = state.players.filter((p) => p.joined).map((p) => p.slot);
-          const allWrong = joinedSlots.every((slot) => state.excludedSlots.includes(slot));
-          if (allWrong) {
+          if (allJoinedExcluded(state)) {
             return startNewQuestion(state, pool);
           }
 
-          return {
-            ...state,
-            phase: "countdown",
-            activePlayerSlot: null,
-            timer: config.countdownSeconds,
-          };
+          return continueSameQuestion(state);
         }
         return { ...state, timer: state.timer - 1 };
       }

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { getPlayableCountries } from "@/lib/countries";
 import { fetchCountriesFromSupabase } from "@/lib/supabase/client";
 import { PLAYER_COLORS, QUESTION_TYPE_LABELS } from "@/lib/game/types";
+import { allJoinedExcluded } from "@/lib/game/engine";
 import { useGameEngine } from "@/lib/game/use-game-engine";
 import { useHostGameAudio } from "@/lib/audio/use-game-audio";
 import { resumeAudio } from "@/lib/audio/game-sounds";
@@ -113,6 +114,9 @@ export function HostGameApp({ roomCode }: HostGameAppProps) {
     );
   }
 
+  const allExcluded = allJoinedExcluded(state);
+  const isWrongResult = state.phase === "result" && state.lastResult && !state.lastResult.correct;
+
   return (
     <div className="flex min-h-screen flex-col bg-slate-950 px-8 py-6 text-white">
       <div className="mb-6 flex items-center justify-between">
@@ -162,12 +166,13 @@ export function HostGameApp({ roomCode }: HostGameAppProps) {
           <TileGrid
             question={state.question}
             selectedIndex={state.selectedTileIndex}
-            showCorrect={state.phase === "result"}
+            revealCorrect={state.phase === "result" && (state.lastResult?.correct === true || allExcluded)}
+            showWrongSelection={isWrongResult === true}
           />
         )}
       </div>
 
-      {state.phase === "result" && state.question && !state.lastResult?.correct && (
+      {isWrongResult && allExcluded && state.question && (
         <p className="text-center text-2xl text-white/70">
           Richtige Antwort:{" "}
           <span className="font-bold text-green-400">
