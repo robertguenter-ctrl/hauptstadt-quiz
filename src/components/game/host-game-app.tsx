@@ -155,7 +155,6 @@ export function HostGameApp({ roomCode }: HostGameAppProps) {
           playerName={playerName(state.activePlayerSlot)}
           phase="answering"
           timer={state.timer}
-          correctSelected={state.question?.tiles[state.selectedTileIndex]?.isCorrect ?? false}
         />
       )}
 

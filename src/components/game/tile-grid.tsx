@@ -8,7 +8,6 @@ interface ActivePlayerBannerProps {
   playerName: string;
   phase: GamePhase;
   timer?: number;
-  correctSelected?: boolean;
 }
 
 export function ActivePlayerBanner({
@@ -16,23 +15,21 @@ export function ActivePlayerBanner({
   playerName,
   phase,
   timer,
-  correctSelected = false,
 }: ActivePlayerBannerProps) {
   const colors = PLAYER_COLORS[playerSlot];
 
   return (
     <div
       className={cn(
-        "mb-6 rounded-2xl border-4 px-8 py-5 text-center transition-colors",
-        correctSelected
-          ? "animate-correct-blink border-green-400 bg-green-500/10"
-          : cn("ring-4", colors.ring, "bg-white/5 border-transparent"),
+        "mb-6 rounded-2xl border-4 border-transparent bg-white/5 px-8 py-5 text-center",
+        "ring-4",
+        colors.ring,
       )}
     >
       <p className="text-sm font-semibold uppercase tracking-widest text-white/50">
         {phase === "answering" ? "Am Zug" : "Antwort von"}
       </p>
-      <p className={cn("text-6xl font-black", correctSelected ? "text-green-400" : colors.text)}>
+      <p className={cn("text-6xl font-black", colors.text)}>
         {playerName}
       </p>
       {phase === "answering" && timer !== undefined && (
@@ -67,7 +64,7 @@ export function TileGrid({ question, selectedIndex, showCorrect = false }: TileG
               "flex min-h-[7rem] items-center justify-center rounded-2xl border-4 px-4 py-3 text-center text-2xl font-semibold transition-all",
               "bg-white/10 border-white/20",
               isSelected && !showCorrect && "scale-105 border-amber-400 bg-amber-400/20 ring-4 ring-amber-400/50",
-              highlightCorrect && "border-green-400 bg-green-500/30",
+              highlightCorrect && "animate-correct-blink border-green-400 bg-green-500/30",
               highlightWrong && "border-red-400 bg-red-500/30",
             )}
           >

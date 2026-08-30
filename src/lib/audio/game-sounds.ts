@@ -59,3 +59,11 @@ export function vibrateBuzzSuccess(): void {
     navigator.vibrate([60, 40, 100, 30, 160]);
   }
 }
+
+/** TV: richtige Antwort bestätigt */
+export function playCorrectJingle(): void {
+  const notes = [523, 659, 784, 1047];
+  notes.forEach((freq, i) => {
+    window.setTimeout(() => playTone(freq, 0.18, "sine", 0.22), i * 110);
+  });
+}
