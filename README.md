@@ -17,32 +17,37 @@ Weltquiz für den Wohnzimmer-TV mit Nintendo Pro Controllern. Vier Spieler buzze
 - Richtig: +1 Punkt · Falsch: −1 Punkt, andere dürfen buzzern
 - Wer zuerst **10 Punkte** hat, gewinnt
 
-## Lokal starten
+## Spiel starten
 
-```bash
-npm install
-npm run dev
-```
+### TV (Host)
+1. [hauptstadt-quiz.vercel.app](https://hauptstadt-quiz.vercel.app) öffnen
+2. **Spiel hosten (TV)** — Raumcode + QR-Code erscheint
+3. Spieler joinen per Handy, dann **Manuell starten** oder nach 3 Sekunden auto-start
 
-Öffne [http://localhost:3000](http://localhost:3000). Controller-Test: [http://localhost:3000/test/gamepad](http://localhost:3000/test/gamepad)
+### Handy (Spieler)
+1. QR-Code scannen oder Raumcode auf der Startseite eingeben
+2. Namen eingeben → **Spiel beitreten**
+3. In der Buzzer-Phase: großen **BUZZ**-Knopf drücken
+4. Wer dran ist: Kachel antippen + **Antwort bestätigen**
 
 ## Supabase einrichten
 
-1. Neues Supabase-Projekt anlegen
-2. `supabase/countries.sql` im SQL Editor ausführen
+1. Neues Supabase-Projekt anlegen (oder bestehendes nutzen)
+2. SQL ausführen:
+   - `supabase/countries.sql`
+   - `supabase/game-rooms.sql`
 3. `.env.example` → `.env.local` kopieren und Keys eintragen
 4. Dev-Server neu starten
 
-Ohne Supabase funktioniert das Spiel mit den eingebauten Länderdaten.
+Ohne Supabase funktioniert das Spiel nicht (Multiplayer benötigt Realtime).
 
 ## Android TV
 
-1. Controller per Bluetooth mit dem TV verbinden
-2. Chrome auf dem TV öffnen → URL der Vercel-Deployment
-3. Einmal einen Controller-Knopf drücken (Browser-Berechtigung)
-4. Zuerst `/test/gamepad` testen, ob alle 4 Controller erkannt werden
+1. Chrome auf dem TV → URL der Vercel-Deployment
+2. **Spiel hosten (TV)** wählen
+3. Spieler joinen per Handy (QR-Code auf dem TV)
 
-**Hinweis Mac:** Der Nintendo Pro Controller funktioniert in Chrome am Mac oft nur per USB, nicht per Bluetooth. Das ist eine macOS/Browser-Einschränkung — am Android TV ist Bluetooth der normale Weg.
+**Hinweis:** Controller-Modus (`/test/gamepad`) ist optional — der Hauptmodus ist Handy-Buzzer.
 
 ## Deployment (Vercel)
 

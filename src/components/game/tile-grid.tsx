@@ -5,11 +5,12 @@ import { FlagImage } from "@/components/game/flag-image";
 
 interface ActivePlayerBannerProps {
   playerSlot: number;
+  playerName: string;
   phase: GamePhase;
   timer?: number;
 }
 
-export function ActivePlayerBanner({ playerSlot, phase, timer }: ActivePlayerBannerProps) {
+export function ActivePlayerBanner({ playerSlot, playerName, phase, timer }: ActivePlayerBannerProps) {
   const colors = PLAYER_COLORS[playerSlot];
 
   return (
@@ -23,7 +24,7 @@ export function ActivePlayerBanner({ playerSlot, phase, timer }: ActivePlayerBan
       <p className="text-sm font-semibold uppercase tracking-widest text-white/50">
         {phase === "answering" ? "Am Zug" : "Antwort von"}
       </p>
-      <p className={cn("text-6xl font-black", colors.text)}>{colors.name}</p>
+      <p className={cn("text-6xl font-black", colors.text)}>{playerName}</p>
       {phase === "answering" && timer !== undefined && (
         <p className="mt-1 text-3xl font-bold tabular-nums text-white/80">{timer}s</p>
       )}

@@ -22,12 +22,11 @@ export function Scoreboard({ players, activeSlot }: ScoreboardProps) {
               isActive && `ring-4 ${colors.ring}`,
             )}
           >
-            <div className={cn("text-lg font-semibold", colors.text)}>{colors.name}</div>
+            <div className={cn("text-lg font-semibold", colors.text)}>
+              {player.joined ? player.name : colors.name}
+            </div>
             <div className="mt-1 text-4xl font-bold tabular-nums">{player.joined ? player.score : "—"}</div>
             {!player.joined && <div className="mt-1 text-sm text-white/50">Wartet …</div>}
-            {player.joined && player.gamepadIndex !== null && (
-              <div className="mt-1 text-xs text-white/40">Controller {player.gamepadIndex + 1}</div>
-            )}
           </div>
         );
       })}

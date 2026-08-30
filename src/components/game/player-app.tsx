@@ -1,0 +1,172 @@
+"use client";
+
+import { useState } from "react";
+import { PLAYER_COLORS, QUESTION_TYPE_LABELS } from "@/lib/game/types";
+import { useRoomPlayer } from "@/lib/room/use-room";
+import { FlagImage } from "@/components/game/flag-image";
+import { cn } from "@/lib/utils";
+
+interface PlayerAppProps {
+  roomCode: string;
+}
+
+export function PlayerApp({ roomCode }: PlayerAppProps) {
+  const { player, gameState, error, joining, join, buzz, selectTile, confirmAnswer } =
+    useRoomPlayer(roomCode);
+  const [name, setName] = useState("");
+
+  if (!player) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-slate-950 p-6 text-white">
+        <h1 className="text-3xl font-bold">Beitreten</h1>
+        <p className="text-white/60">Raum {roomCode}</p>
+        <input
+          type="text"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Dein Name"
+          maxLength={24}
+          className="w-full max-w-sm rounded-xl border border-white/20 bg-white/10 px-4 py-4 text-xl text-center outline-none focus:border-amber-400"
+        />
+        {error && <p className="text-red-400">{error}</p>}
+        <button
+          type="button"
+          disabled={joining || name.trim().length < 1}
+          onClick={() => void join(name)}
+          className="w-full max-w-sm rounded-xl bg-amber-500 py-4 text-xl font-bold text-black disabled:opacity-40"
+        >
+          {joining ? "Beitreten …" : "Spiel beitreten"}
+        </button>
+      </div>
+    );
+  }
+
+  const colors = PLAYER_COLORS[player.slot];
+  const phase = gameState?.phase ?? "lobby";
+  const isActive = gameState?.activePlayerSlot === player.slot;
+  const isExcluded = gameState?.excludedSlots.includes(player.slot) ?? false;
+  const question = gameState?.question;
+
+  if (phase === "lobby") {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-slate-950 p-6 text-white">
+        <p className={cn("text-2xl font-bold", colors.text)}>{player.name}</p>
+        <p className="text-white/60">Warte auf Spielstart …</p>
+        <p className="text-4xl font-black text-amber-400">{gameState?.players.filter((p) => p.joined).length ?? 0}/4</p>
+      </div>
+    );
+  }
+
+  if (phase === "gameover") {
+    const winner = gameState?.players[gameState.winnerSlot!];
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-slate-950 p-6 text-white">
+        <p className="text-3xl font-bold">{winner?.name} gewinnt!</p>
+        <p className={cn("text-xl", colors.text)}>{player.name}: {gameState?.players[player.slot]?.score} Punkte</p>
+      </div>
+    );
+  }
+
+  if (phase === "countdown") {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-slate-950 p-6 text-white">
+        <p className="text-lg text-white/60">{question && QUESTION_TYPE_LABELS[question.type]}</p>
+        <p className="text-8xl font-black text-amber-400">{gameState?.timer}</p>
+      </div>
+    );
+  }
+
+  if (phase === "buzzer") {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-slate-950 p-6 text-white">
+        <p className={cn("text-xl font-semibold", colors.text)}>{player.name}</p>
+        {isExcluded ? (
+          <p className="text-center text-white/50">Du hast bereits falsch geantwortet — warte auf die anderen.</p>
+        ) : (
+          <button
+            type="button"
+            onClick={() => void buzz()}
+            className="flex h-64 w-64 items-center justify-center rounded-full bg-red-600 text-4xl font-black shadow-lg shadow-red-900/50 active:scale-95"
+          >
+            BUZZ
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  if (phase === "answering") {
+    if (!isActive) {
+      const activeName = gameState?.players[gameState.activePlayerSlot!]?.name ?? "…";
+      return (
+        <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-slate-950 p-6 text-white">
+          <p className="text-2xl font-bold text-white/80">{activeName} ist dran</p>
+          <p className="text-white/50">{gameState?.timer}s</p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex min-h-screen flex-col bg-slate-950 p-4 text-white">
+        <div className="mb-4 text-center">
+          <p className={cn("text-2xl font-bold", colors.text)}>{player.name} — du bist dran!</p>
+          <p className="text-3xl font-bold tabular-nums text-amber-300">{gameState?.timer}s</p>
+        </div>
+
+        {question && (
+          <div className="mb-4 grid grid-cols-3 gap-2">
+            {question.tiles.map((tile, index) => {
+              const selected = gameState?.selectedTileIndex === index;
+              const showFlags = question.type === "country_to_flag";
+
+              return (
+                <button
+                  key={tile.id}
+                  type="button"
+                  onClick={() => void selectTile(index)}
+                  className={cn(
+                    "flex min-h-[4.5rem] items-center justify-center rounded-xl border-2 px-2 py-2 text-sm font-semibold",
+                    selected ? "border-amber-400 bg-amber-400/20" : "border-white/20 bg-white/10",
+                  )}
+                >
+                  {showFlags && tile.iso_code ? (
+                    <FlagImage isoCode={tile.iso_code} size="tile" alt={tile.label} />
+                  ) : (
+                    tile.label
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        <button
+          type="button"
+          onClick={() => void confirmAnswer()}
+          className="mt-auto rounded-xl bg-green-600 py-5 text-xl font-bold"
+        >
+          Antwort bestätigen
+        </button>
+      </div>
+    );
+  }
+
+  if (phase === "result") {
+    const correct = gameState?.lastResult?.correct;
+    const wasMe = gameState?.lastResult?.playerSlot === player.slot;
+
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-slate-950 p-6 text-white">
+        {wasMe && (
+          <p className={cn("text-4xl font-black", correct ? "text-green-400" : "text-red-400")}>
+            {correct ? "Richtig!" : "Falsch!"}
+          </p>
+        )}
+        {!wasMe && <p className="text-white/60">Nächste Runde …</p>}
+        <p className={cn("text-xl", colors.text)}>{player.name}: {gameState?.players[player.slot]?.score} Punkte</p>
+      </div>
+    );
+  }
+
+  return null;
+}

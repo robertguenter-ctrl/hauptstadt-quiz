@@ -33,9 +33,21 @@ export interface Question {
 export interface Player {
   slot: number;
   name: string;
-  gamepadIndex: number | null;
+  playerId: string | null;
   score: number;
   joined: boolean;
+}
+
+export interface GameState {
+  phase: GamePhase;
+  players: Player[];
+  question: Question | null;
+  activePlayerSlot: number | null;
+  excludedSlots: number[];
+  selectedTileIndex: number;
+  timer: number;
+  lastResult: { correct: boolean; playerSlot: number } | null;
+  winnerSlot: number | null;
 }
 
 export interface GameConfig {
