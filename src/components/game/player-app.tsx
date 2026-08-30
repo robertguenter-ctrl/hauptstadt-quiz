@@ -13,7 +13,7 @@ interface PlayerAppProps {
 }
 
 export function PlayerApp({ roomCode }: PlayerAppProps) {
-  const { player, gameState, error, joining, join, buzz, selectTile, confirmAnswer } =
+  const { player, gameState, error, joining, join, buzz, selectTile, confirmAnswer, startGame } =
     useRoomPlayer(roomCode);
   const [name, setName] = useState("");
 
@@ -52,11 +52,32 @@ export function PlayerApp({ roomCode }: PlayerAppProps) {
   const question = gameState?.question;
 
   if (phase === "lobby") {
+    const joinedCount = gameState?.players.filter((p) => p.joined).length ?? 0;
+    const joinedNames = gameState?.players.filter((p) => p.joined).map((p) => p.name) ?? [];
+
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-slate-950 p-6 text-white">
+      <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-slate-950 p-6 text-white">
         <p className={cn("text-2xl font-bold", colors.text)}>{player.name}</p>
-        <p className="text-white/60">Warte auf Spielstart …</p>
-        <p className="text-4xl font-black text-amber-400">{gameState?.players.filter((p) => p.joined).length ?? 0}/4</p>
+        <p className="text-white/60">Warte, bis alle da sind …</p>
+        <p className="text-4xl font-black text-amber-400">{joinedCount}/4</p>
+        {joinedNames.length > 0 && (
+          <ul className="text-center text-white/70">
+            {joinedNames.map((name) => (
+              <li key={name}>{name}</li>
+            ))}
+          </ul>
+        )}
+        <button
+          type="button"
+          disabled={joinedCount < 1}
+          onClick={() => {
+            resumeAudio();
+            void startGame();
+          }}
+          className="w-full max-w-sm rounded-xl bg-amber-500 py-4 text-xl font-bold text-black disabled:opacity-40"
+        >
+          Spiel jetzt starten
+        </button>
       </div>
     );
   }

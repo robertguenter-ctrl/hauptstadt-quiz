@@ -89,4 +89,5 @@ export function roomChannelName(code: string): string {
 export type PlayerActionPayload =
   | { type: "BUZZ" }
   | { type: "SELECT_TILE"; index: number }
-  | { type: "CONFIRM_ANSWER" };
+  | { type: "CONFIRM_ANSWER" }
+  | { type: "START_GAME" };

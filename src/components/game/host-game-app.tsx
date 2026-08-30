@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { getPlayableCountries } from "@/lib/countries";
 import { fetchCountriesFromSupabase } from "@/lib/supabase/client";
 import { PLAYER_COLORS, QUESTION_TYPE_LABELS } from "@/lib/game/types";
@@ -20,7 +20,6 @@ interface HostGameAppProps {
 export function HostGameApp({ roomCode }: HostGameAppProps) {
   const [countryPool, setCountryPool] = useState(getPlayableCountries());
   const { state, dispatch } = useGameEngine(countryPool);
-  const lobbyStartedRef = useRef(false);
   const joinLink = joinUrl(roomCode);
 
   useRoomHost(roomCode, state, dispatch);
@@ -34,16 +33,6 @@ export function HostGameApp({ roomCode }: HostGameAppProps) {
 
   const joinedCount = state.players.filter((p) => p.joined).length;
   const canStart = joinedCount >= 1;
-
-  useEffect(() => {
-    if (state.phase !== "lobby" || !canStart || lobbyStartedRef.current) return;
-
-    const timeout = window.setTimeout(() => {
-      lobbyStartedRef.current = true;
-      dispatch({ type: "START_GAME" });
-    }, 3000);
-    return () => window.clearTimeout(timeout);
-  }, [state.phase, canStart, joinedCount, dispatch]);
 
   const phaseLabel = useMemo(() => {
     switch (state.phase) {
@@ -85,9 +74,11 @@ export function HostGameApp({ roomCode }: HostGameAppProps) {
 
         <Scoreboard players={state.players} />
 
-        {canStart && (
-          <p className="animate-pulse text-xl text-green-400">Spiel startet gleich …</p>
-        )}
+        <p className="text-lg text-white/60">
+          {canStart
+            ? "Starte das Spiel, wenn alle Spieler da sind — am TV oder per Handy."
+            : "Warte auf mindestens einen Spieler …"}
+        </p>
 
         <button
           type="button"
@@ -98,7 +89,7 @@ export function HostGameApp({ roomCode }: HostGameAppProps) {
           disabled={!canStart}
           className="rounded-xl bg-amber-500 px-8 py-4 text-xl font-bold text-black disabled:opacity-30"
         >
-          Manuell starten
+          Spiel jetzt starten
         </button>
       </div>
     );
@@ -113,10 +104,7 @@ export function HostGameApp({ roomCode }: HostGameAppProps) {
         <Scoreboard players={state.players} activeSlot={winner.slot} />
         <button
           type="button"
-          onClick={() => {
-            lobbyStartedRef.current = false;
-            dispatch({ type: "RESET_LOBBY" });
-          }}
+          onClick={() => dispatch({ type: "RESET_LOBBY" })}
           className="rounded-xl bg-amber-500 px-10 py-5 text-2xl font-bold text-black"
         >
           Neues Spiel
