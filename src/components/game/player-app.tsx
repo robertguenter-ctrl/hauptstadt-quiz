@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { PLAYER_COLORS, QUESTION_TYPE_LABELS } from "@/lib/game/types";
+import { AnswerTouchpad } from "@/components/game/answer-touchpad";
 import { useRoomPlayer } from "@/lib/room/use-room";
-import { FlagImage } from "@/components/game/flag-image";
 import { cn } from "@/lib/utils";
 
 interface PlayerAppProps {
@@ -114,39 +114,14 @@ export function PlayerApp({ roomCode }: PlayerAppProps) {
         </div>
 
         {question && (
-          <div className="mb-4 grid grid-cols-3 gap-2">
-            {question.tiles.map((tile, index) => {
-              const selected = gameState?.selectedTileIndex === index;
-              const showFlags = question.type === "country_to_flag";
-
-              return (
-                <button
-                  key={tile.id}
-                  type="button"
-                  onClick={() => void selectTile(index)}
-                  className={cn(
-                    "flex min-h-[4.5rem] items-center justify-center rounded-xl border-2 px-2 py-2 text-sm font-semibold",
-                    selected ? "border-amber-400 bg-amber-400/20" : "border-white/20 bg-white/10",
-                  )}
-                >
-                  {showFlags && tile.iso_code ? (
-                    <FlagImage isoCode={tile.iso_code} size="tile" alt={tile.label} />
-                  ) : (
-                    tile.label
-                  )}
-                </button>
-              );
-            })}
-          </div>
+          <AnswerTouchpad
+            question={question}
+            selectedIndex={gameState?.selectedTileIndex ?? 4}
+            onSelect={(index) => void selectTile(index)}
+            onConfirm={() => void confirmAnswer()}
+            accentClass={colors.text}
+          />
         )}
-
-        <button
-          type="button"
-          onClick={() => void confirmAnswer()}
-          className="mt-auto rounded-xl bg-green-600 py-5 text-xl font-bold"
-        >
-          Antwort bestätigen
-        </button>
       </div>
     );
   }
