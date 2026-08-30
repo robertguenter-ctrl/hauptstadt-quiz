@@ -1,36 +1,50 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Hauptstadt-Quiz
 
-## Getting Started
+Weltquiz für den Wohnzimmer-TV mit Nintendo Pro Controllern. Vier Spieler buzzern, wählen aus 9 Kacheln, wer zuerst 10 Punkte hat gewinnt.
 
-First, run the development server:
+## Stack
+
+- **Next.js** (Vercel)
+- **Supabase** (Länder-Datenbank, optional — eingebaute Fallback-Daten vorhanden)
+- **Gamepad API** (Controller am Android TV)
+
+## Spielregeln
+
+- 4 Spieler, je ein Controller
+- 4 Fragetypen: Flagge→Land, Land→Flagge, Land→Hauptstadt, Hauptstadt→Land
+- 9 Antwort-Kacheln (3×3)
+- Buzzer: Wer zuerst drückt, darf antworten (10 Sekunden)
+- Richtig: +1 Punkt · Falsch: −1 Punkt, andere dürfen buzzern
+- Wer zuerst **10 Punkte** hat, gewinnt
+
+## Lokal starten
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Öffne [http://localhost:3000](http://localhost:3000). Controller-Test: [http://localhost:3000/test/gamepad](http://localhost:3000/test/gamepad)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Supabase einrichten
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. Neues Supabase-Projekt anlegen
+2. `supabase/countries.sql` im SQL Editor ausführen
+3. `.env.example` → `.env.local` kopieren und Keys eintragen
+4. Dev-Server neu starten
 
-## Learn More
+Ohne Supabase funktioniert das Spiel mit den eingebauten Länderdaten.
 
-To learn more about Next.js, take a look at the following resources:
+## Android TV
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1. Controller per Bluetooth mit dem TV verbinden
+2. Chrome auf dem TV öffnen → URL der Vercel-Deployment
+3. Einmal einen Controller-Knopf drücken (Browser-Berechtigung)
+4. Zuerst `/test/gamepad` testen, ob alle 4 Controller erkannt werden
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Deployment (Vercel)
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. Repo auf GitHub pushen
+2. In Vercel importieren
+3. `NEXT_PUBLIC_SUPABASE_URL` und `NEXT_PUBLIC_SUPABASE_ANON_KEY` setzen
+4. Deployen
