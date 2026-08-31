@@ -91,4 +91,5 @@ export type PlayerActionPayload =
   | { type: "SELECT_TILE"; index: number }
   | { type: "CONFIRM_ANSWER" }
   | { type: "START_GAME" }
+  | { type: "SET_ANSWER_MODE"; mode: "tiles" | "voice" }
   | { type: "VOICE_ANSWER"; transcript: string; alternatives?: string[] };

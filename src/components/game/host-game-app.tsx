@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { getPlayableCountries } from "@/lib/countries";
 import { fetchCountriesFromSupabase } from "@/lib/supabase/client";
-import { PLAYER_COLORS, ANSWER_MODE_LABELS, QUESTION_TYPE_LABELS } from "@/lib/game/types";
+import { PLAYER_COLORS, QUESTION_TYPE_LABELS } from "@/lib/game/types";
 import { allJoinedExcluded } from "@/lib/game/engine";
 import { getCorrectAnswerLabel } from "@/lib/game/voice-match";
 import { useGameEngine } from "@/lib/game/use-game-engine";
@@ -12,6 +12,7 @@ import { resumeAudio } from "@/lib/audio/game-sounds";
 import { useRoomHost } from "@/lib/room/use-room";
 import { joinUrl, qrCodeImageUrl } from "@/lib/room/codes";
 import { Scoreboard } from "@/components/game/scoreboard";
+import { AnswerModeSelector } from "@/components/game/answer-mode-selector";
 import { QuestionDisplay, TileGrid, ActivePlayerBanner } from "@/components/game/tile-grid";
 import { cn } from "@/lib/utils";
 
@@ -61,12 +62,19 @@ export function HostGameApp({ roomCode }: HostGameAppProps) {
 
   if (state.phase === "lobby") {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-8 bg-slate-950 px-8 text-white">
+      <div className="min-h-screen overflow-y-auto bg-slate-950 px-8 py-8 text-white">
+        <div className="mx-auto flex max-w-4xl flex-col items-center gap-8">
         <div className="text-center">
           <h1 className="text-6xl font-black tracking-tight">Hauptstadt-Quiz</h1>
           <p className="mt-4 text-2xl text-white/70">Handy-Buzzer — Raumcode</p>
           <p className="mt-2 text-7xl font-black tracking-[0.3em] text-amber-400">{roomCode}</p>
         </div>
+
+        <AnswerModeSelector
+          size="large"
+          mode={state.answerMode}
+          onChange={(mode) => dispatch({ type: "SET_ANSWER_MODE", mode })}
+        />
 
         <div className="flex flex-col items-center gap-4 rounded-2xl border border-white/20 bg-white/5 p-8">
           <img src={qrCodeImageUrl(joinLink)} alt="QR-Code zum Beitreten" className="rounded-xl" width={280} height={280} />
@@ -75,32 +83,6 @@ export function HostGameApp({ roomCode }: HostGameAppProps) {
         </div>
 
         <Scoreboard players={state.players} />
-
-        <div className="flex flex-col items-center gap-3">
-          <p className="text-sm uppercase tracking-widest text-white/40">Antwortmodus</p>
-          <div className="flex gap-3">
-            {(["tiles", "voice"] as const).map((mode) => (
-              <button
-                key={mode}
-                type="button"
-                onClick={() => dispatch({ type: "SET_ANSWER_MODE", mode })}
-                className={cn(
-                  "rounded-xl px-6 py-3 text-lg font-bold transition-colors",
-                  state.answerMode === mode
-                    ? "bg-amber-500 text-black"
-                    : "bg-white/10 text-white hover:bg-white/20",
-                )}
-              >
-                {ANSWER_MODE_LABELS[mode]}
-              </button>
-            ))}
-          </div>
-          <p className="max-w-md text-center text-sm text-white/50">
-            {state.answerMode === "voice"
-              ? "Spieler antworten per Sprache — ohne Flaggen-Auswahl."
-              : "Spieler wählen die Antwort per Touchpad auf dem Handy."}
-          </p>
-        </div>
 
         <p className="text-lg text-white/60">
           {canStart
@@ -119,6 +101,7 @@ export function HostGameApp({ roomCode }: HostGameAppProps) {
         >
           Spiel jetzt starten
         </button>
+        </div>
       </div>
     );
   }

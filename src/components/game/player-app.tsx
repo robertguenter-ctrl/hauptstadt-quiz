@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { PLAYER_COLORS, ANSWER_MODE_LABELS, QUESTION_TYPE_LABELS } from "@/lib/game/types";
+import { PLAYER_COLORS, QUESTION_TYPE_LABELS } from "@/lib/game/types";
 import { AnswerTouchpad } from "@/components/game/answer-touchpad";
+import { AnswerModeSelector } from "@/components/game/answer-mode-selector";
 import { VoiceTalkButton } from "@/components/game/voice-talk-button";
 import { usePlayerBuzzAudio } from "@/lib/audio/use-game-audio";
 import { resumeAudio } from "@/lib/audio/game-sounds";
@@ -14,7 +15,7 @@ interface PlayerAppProps {
 }
 
 export function PlayerApp({ roomCode }: PlayerAppProps) {
-  const { player, gameState, error, joining, join, buzz, selectTile, confirmAnswer, startGame, voiceAnswer } =
+  const { player, gameState, error, joining, join, buzz, selectTile, confirmAnswer, startGame, setAnswerMode, voiceAnswer } =
     useRoomPlayer(roomCode);
   const [name, setName] = useState("");
   const [voiceSubmitted, setVoiceSubmitted] = useState(false);
@@ -67,9 +68,10 @@ export function PlayerApp({ roomCode }: PlayerAppProps) {
       <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-slate-950 p-6 text-white">
         <p className={cn("text-2xl font-bold", colors.text)}>{player.name}</p>
         <p className="text-white/60">Warte, bis alle da sind …</p>
-        <p className="text-sm text-white/40">
-          Modus: {ANSWER_MODE_LABELS[gameState?.answerMode ?? "tiles"]}
-        </p>
+        <AnswerModeSelector
+          mode={gameState?.answerMode ?? "tiles"}
+          onChange={(mode) => void setAnswerMode(mode)}
+        />
         <p className="text-4xl font-black text-amber-400">{joinedCount}/4</p>
         {joinedNames.length > 0 && (
           <ul className="text-center text-white/70">
