@@ -2,8 +2,17 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
+interface SpeechRecognitionResultLike {
+  isFinal: boolean;
+  length: number;
+  [index: number]: { transcript: string } | undefined;
+}
+
 interface SpeechRecognitionEventLike {
-  results: SpeechRecognitionResultList;
+  results: SpeechRecognitionResultList & {
+    length: number;
+    [index: number]: SpeechRecognitionResultLike;
+  };
 }
 
 interface SpeechRecognitionLike {
@@ -35,72 +44,145 @@ export interface SpeechResult {
   alternatives: string[];
 }
 
+function collectFromEvent(event: SpeechRecognitionEventLike): SpeechResult {
+  const alternatives: string[] = [];
+  let transcript = "";
+
+  for (let i = 0; i < event.results.length; i += 1) {
+    const result = event.results[i];
+    if (!result) continue;
+
+    for (let j = 0; j < result.length; j += 1) {
+      const text = result[j]?.transcript?.trim();
+      if (text && !alternatives.includes(text)) {
+        alternatives.push(text);
+      }
+    }
+
+    if (result.isFinal && result[0]?.transcript) {
+      transcript = result[0].transcript.trim();
+    }
+  }
+
+  if (!transcript && alternatives[0]) {
+    transcript = alternatives[0];
+  }
+
+  return { transcript, alternatives };
+}
+
 export function useSpeechRecognition() {
   const [listening, setListening] = useState(false);
   const [supported, setSupported] = useState(true);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
-  const onResultRef = useRef<((result: SpeechResult) => void) | null>(null);
+  const latestResultRef = useRef<SpeechResult>({ transcript: "", alternatives: [] });
+  const finalizeRef = useRef<((result: SpeechResult) => void) | null>(null);
+  const stoppingRef = useRef(false);
 
   useEffect(() => {
     setSupported(getSpeechRecognition() !== null);
   }, []);
 
-  const stop = useCallback(() => {
-    recognitionRef.current?.stop();
-    recognitionRef.current = null;
-    setListening(false);
+  const deliverResult = useCallback(() => {
+    const callback = finalizeRef.current;
+    finalizeRef.current = null;
+    stoppingRef.current = false;
+    callback?.(latestResultRef.current);
   }, []);
 
-  const start = useCallback(
-    (onResult: (result: SpeechResult) => void) => {
-      const SpeechRecognition = getSpeechRecognition();
-      if (!SpeechRecognition) {
-        setSupported(false);
+  const stop = useCallback(
+    (onFinalize: (result: SpeechResult) => void) => {
+      finalizeRef.current = onFinalize;
+      stoppingRef.current = true;
+
+      const recognition = recognitionRef.current;
+      if (!recognition) {
+        setListening(false);
+        deliverResult();
         return;
       }
 
-      stop();
-      onResultRef.current = onResult;
-
-      const recognition = new SpeechRecognition();
-      recognition.lang = "de-DE";
-      recognition.continuous = false;
-      recognition.interimResults = false;
-      recognition.maxAlternatives = 3;
-
-      recognition.onresult = (event) => {
-        const result = event.results[0];
-        if (!result) return;
-
-        const alternatives: string[] = [];
-        for (let i = 0; i < result.length; i += 1) {
-          const text = result[i]?.transcript?.trim();
-          if (text) alternatives.push(text);
-        }
-
-        const transcript = alternatives[0] ?? "";
-        onResultRef.current?.({ transcript, alternatives });
-      };
-
-      recognition.onerror = () => {
-        setListening(false);
-        onResultRef.current?.({ transcript: "", alternatives: [] });
-        recognitionRef.current = null;
-      };
-
-      recognition.onend = () => {
+      try {
+        recognition.stop();
+      } catch {
         setListening(false);
         recognitionRef.current = null;
-      };
-
-      recognitionRef.current = recognition;
-      setListening(true);
-      recognition.start();
+        deliverResult();
+      }
     },
-    [stop],
+    [deliverResult],
   );
 
-  useEffect(() => () => stop(), [stop]);
+  const start = useCallback(() => {
+    const SpeechRecognition = getSpeechRecognition();
+    if (!SpeechRecognition) {
+      setSupported(false);
+      return;
+    }
+
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.abort();
+      } catch {
+        // ignore
+      }
+    }
+
+    latestResultRef.current = { transcript: "", alternatives: [] };
+    stoppingRef.current = false;
+    finalizeRef.current = null;
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = "de-DE";
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.maxAlternatives = 3;
+
+    recognition.onresult = (event) => {
+      const collected = collectFromEvent(event);
+      if (collected.transcript || collected.alternatives.length > 0) {
+        latestResultRef.current = collected;
+      }
+    };
+
+    recognition.onerror = (event) => {
+      if (event.error === "no-speech" || event.error === "aborted") {
+        return;
+      }
+      if (!stoppingRef.current) {
+        setListening(false);
+        recognitionRef.current = null;
+      }
+    };
+
+    recognition.onend = () => {
+      setListening(false);
+      recognitionRef.current = null;
+      if (stoppingRef.current) {
+        deliverResult();
+      }
+    };
+
+    recognitionRef.current = recognition;
+    setListening(true);
+
+    try {
+      recognition.start();
+    } catch {
+      setListening(false);
+      recognitionRef.current = null;
+    }
+  }, [deliverResult]);
+
+  useEffect(() => {
+    return () => {
+      try {
+        recognitionRef.current?.abort();
+      } catch {
+        // ignore
+      }
+    };
+  }, []);
 
   return { listening, supported, start, stop };
 }

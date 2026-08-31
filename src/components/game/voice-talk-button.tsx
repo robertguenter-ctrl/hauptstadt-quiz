@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { useSpeechRecognition } from "@/lib/audio/use-speech-recognition";
 import { cn } from "@/lib/utils";
 
@@ -12,7 +12,8 @@ interface VoiceTalkButtonProps {
 
 export function VoiceTalkButton({ disabled = false, onAnswer, accentClass }: VoiceTalkButtonProps) {
   const { listening, supported, start, stop } = useSpeechRecognition();
-  const submittedRef = useRef(false);
+  const holdingRef = useRef(false);
+  const [hint, setHint] = useState<string | null>(null);
 
   if (!supported) {
     return (
@@ -22,28 +23,29 @@ export function VoiceTalkButton({ disabled = false, onAnswer, accentClass }: Voi
     );
   }
 
-  function handleResult(transcript: string, alternatives: string[]) {
-    if (submittedRef.current) return;
-    submittedRef.current = true;
-    onAnswer(transcript, alternatives);
+  function handlePointerDown(event: React.PointerEvent<HTMLButtonElement>) {
+    event.preventDefault();
+    if (disabled || holdingRef.current) return;
+
+    holdingRef.current = true;
+    setHint(null);
+    start();
   }
 
-  function handlePointerDown() {
-    if (disabled || listening) return;
-    submittedRef.current = false;
-    start(({ transcript, alternatives }) => {
-      handleResult(transcript, alternatives);
-    });
-  }
+  function handlePointerUp(event: React.PointerEvent<HTMLButtonElement>) {
+    event.preventDefault();
+    if (!holdingRef.current) return;
 
-  function handlePointerUp() {
-    if (!listening) return;
-    stop();
-    window.setTimeout(() => {
-      if (!submittedRef.current) {
-        handleResult("", []);
+    stop(({ transcript, alternatives }) => {
+      holdingRef.current = false;
+
+      if (!transcript.trim()) {
+        setHint("Nicht verstanden — TALK gedrückt halten und antworten.");
+        return;
       }
-    }, 400);
+
+      onAnswer(transcript, alternatives);
+    });
   }
 
   return (
@@ -70,6 +72,7 @@ export function VoiceTalkButton({ disabled = false, onAnswer, accentClass }: Voi
       {accentClass && listening && (
         <p className={cn("text-lg font-semibold", accentClass)}>Mikrofon aktiv</p>
       )}
+      {hint && <p className="max-w-xs text-center text-amber-300">{hint}</p>}
     </div>
   );
 }

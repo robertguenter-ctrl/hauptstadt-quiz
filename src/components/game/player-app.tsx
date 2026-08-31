@@ -158,6 +158,7 @@ export function PlayerApp({ roomCode }: PlayerAppProps) {
             disabled={voiceSubmitted}
             accentClass={colors.text}
             onAnswer={(transcript, alternatives) => {
+              if (!transcript.trim()) return;
               setVoiceSubmitted(true);
               void voiceAnswer(transcript, alternatives);
             }}
