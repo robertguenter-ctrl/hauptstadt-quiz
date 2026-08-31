@@ -7,6 +7,7 @@ import { AnswerModeSelector } from "@/components/game/answer-mode-selector";
 import { VoiceTalkButton } from "@/components/game/voice-talk-button";
 import { usePlayerBuzzAudio } from "@/lib/audio/use-game-audio";
 import { resumeAudio } from "@/lib/audio/game-sounds";
+import { isBuzzerReady } from "@/lib/game/engine";
 import { useRoomPlayer } from "@/lib/room/use-room";
 import { cn } from "@/lib/utils";
 
@@ -59,6 +60,7 @@ export function PlayerApp({ roomCode }: PlayerAppProps) {
   const isActive = gameState?.activePlayerSlot === player.slot;
   const isExcluded = gameState?.excludedSlots.includes(player.slot) ?? false;
   const question = gameState?.question;
+  const buzzerReady = gameState ? isBuzzerReady(gameState) : false;
 
   if (phase === "lobby") {
     const joinedCount = gameState?.players.filter((p) => p.joined).length ?? 0;
@@ -105,7 +107,7 @@ export function PlayerApp({ roomCode }: PlayerAppProps) {
     );
   }
 
-  if (phase === "countdown") {
+  if (phase === "countdown" && !buzzerReady) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-slate-950 p-6 text-white">
         <p className="text-lg text-white/60">{question && QUESTION_TYPE_LABELS[question.type]}</p>
@@ -114,10 +116,13 @@ export function PlayerApp({ roomCode }: PlayerAppProps) {
     );
   }
 
-  if (phase === "buzzer") {
+  if (buzzerReady) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-slate-950 p-6 text-white">
         <p className={cn("text-xl font-semibold", colors.text)}>{player.name}</p>
+        {phase === "countdown" && (
+          <p className="text-sm font-semibold uppercase tracking-widest text-amber-400">BUZZER!</p>
+        )}
         {isExcluded ? (
           <p className="text-center text-white/50">Du hast bereits falsch geantwortet — warte auf die anderen.</p>
         ) : (

@@ -228,7 +228,10 @@ export function gameReducer(
     }
 
     case "BUZZ": {
-      if (state.phase !== "buzzer") return state;
+      const buzzAllowed =
+        state.phase === "buzzer" ||
+        (state.phase === "countdown" && state.timer <= 1);
+      if (!buzzAllowed) return state;
       if (state.excludedSlots.includes(action.playerSlot)) return state;
       const player = state.players[action.playerSlot];
       if (!player?.joined) return state;
@@ -339,4 +342,11 @@ export function parseGameState(raw: unknown): GameState | null {
 export function getPlayerSlotById(state: GameState, playerId: string): number | null {
   const player = state.players.find((p) => p.playerId === playerId);
   return player?.slot ?? null;
+}
+
+/** Buzzer may be shown / pressed (incl. last second of countdown). */
+export function isBuzzerReady(state: GameState): boolean {
+  if (state.phase === "buzzer") return true;
+  if (state.phase === "countdown" && state.timer <= 1) return true;
+  return false;
 }

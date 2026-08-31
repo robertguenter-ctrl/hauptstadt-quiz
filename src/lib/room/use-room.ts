@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import type { GameAction } from "@/lib/game/engine";
-import { getPlayerSlotById } from "@/lib/game/engine";
+import { getPlayerSlotById, parseGameState, serializeGameState } from "@/lib/game/engine";
 import {
   fetchRoomPlayers,
   joinRoom,
@@ -64,23 +64,40 @@ export function useRoomPlayer(roomCode: string) {
       .eq("code", roomCode)
       .single()
       .then(({ data }) => {
-        if (data?.state) setGameState(data.state as GameState);
+        if (data?.state) {
+          const parsed = parseGameState(data.state);
+          if (parsed) setGameState(parsed);
+        }
       });
 
-    const channel = supabase
+    const roomChannel = supabase
+      .channel(roomChannelName(roomCode))
+      .on("broadcast", { event: "state_sync" }, ({ payload }) => {
+        const data = payload as { state?: unknown };
+        if (!data.state) return;
+        const parsed = parseGameState(data.state);
+        if (parsed) setGameState(parsed);
+      })
+      .subscribe();
+
+    const stateChannel = supabase
       .channel(`state:${roomCode}`)
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "game_rooms", filter: `code=eq.${roomCode}` },
         (payload) => {
-          const next = payload.new as { state?: GameState };
-          if (next.state) setGameState(next.state);
+          const next = payload.new as { state?: unknown };
+          if (next.state) {
+            const parsed = parseGameState(next.state);
+            if (parsed) setGameState(parsed);
+          }
         },
       )
       .subscribe();
 
     return () => {
-      void supabase.removeChannel(channel);
+      void supabase.removeChannel(roomChannel);
+      void supabase.removeChannel(stateChannel);
     };
   }, [roomCode]);
 
@@ -153,11 +170,21 @@ export function useRoomPlayer(roomCode: string) {
 export function useRoomHost(roomCode: string, state: GameState, dispatch: (a: GameAction) => void) {
   const stateRef = useRef(state);
   stateRef.current = state;
+  const broadcastChannelRef = useRef<RealtimeChannel | null>(null);
 
   useEffect(() => {
     const supabase = getSupabaseClient();
     if (!supabase) return;
     void saveRoomState(supabase, roomCode, state);
+
+    const channel = broadcastChannelRef.current;
+    if (channel) {
+      void channel.send({
+        type: "broadcast",
+        event: "state_sync",
+        payload: { state: serializeGameState(state) },
+      });
+    }
   }, [roomCode, state]);
 
   useEffect(() => {
@@ -222,7 +249,16 @@ export function useRoomHost(roomCode: string, state: GameState, dispatch: (a: Ga
             break;
         }
       })
-      .subscribe();
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          broadcastChannelRef.current = actionChannel;
+          void actionChannel.send({
+            type: "broadcast",
+            event: "state_sync",
+            payload: { state: serializeGameState(stateRef.current) },
+          });
+        }
+      });
 
     const playersChannel = supabase
       .channel(`players:${roomCode}`)
@@ -242,6 +278,7 @@ export function useRoomHost(roomCode: string, state: GameState, dispatch: (a: Ga
       .subscribe();
 
     return () => {
+      broadcastChannelRef.current = null;
       void supabase.removeChannel(actionChannel);
       void supabase.removeChannel(playersChannel);
     };
