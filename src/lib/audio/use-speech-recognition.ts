@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 
 interface SpeechRecognitionResultLike {
   isFinal: boolean;
@@ -80,10 +80,22 @@ function snapshotResults(event: SpeechRecognitionEventLike): SpeechResult {
   return { transcript, alternatives };
 }
 
+function mergeResults(current: SpeechResult, incoming: SpeechResult): SpeechResult {
+  const alternatives = [...current.alternatives];
+  for (const alt of incoming.alternatives) {
+    if (!alternatives.includes(alt)) alternatives.push(alt);
+  }
+
+  const transcript = incoming.transcript || current.transcript;
+  return { transcript, alternatives };
+}
+
 const MIC_DENIED_HINT =
   "Mikrofon blockiert — in Chrome: ⋮ → Einstellungen → Website-Einstellungen → Mikrofon erlauben.";
 
-export function useSpeechRecognition() {
+const FINALIZE_DELAY_MS = 400;
+
+export function useSpeechRecognition(holdingRef: RefObject<boolean>) {
   const [listening, setListening] = useState(false);
   const [liveTranscript, setLiveTranscript] = useState("");
   const [micHint, setMicHint] = useState<string | null>(null);
@@ -92,6 +104,7 @@ export function useSpeechRecognition() {
   const latestResultRef = useRef<SpeechResult>({ transcript: "", alternatives: [] });
   const finalizeRef = useRef<((result: SpeechResult) => void) | null>(null);
   const stoppingRef = useRef(false);
+  const restartingRef = useRef(false);
 
   useEffect(() => {
     setSupported(getSpeechRecognition() !== null);
@@ -101,19 +114,93 @@ export function useSpeechRecognition() {
     const callback = finalizeRef.current;
     finalizeRef.current = null;
     stoppingRef.current = false;
+    restartingRef.current = false;
     setLiveTranscript("");
     callback?.(latestResultRef.current);
   }, []);
+
+  const attachRecognition = useCallback(
+    (recognition: SpeechRecognitionLike, mergeWithPrevious: boolean) => {
+      recognition.onresult = (event) => {
+        const collected = snapshotResults(event);
+        if (collected.transcript || collected.alternatives.length > 0) {
+          latestResultRef.current = mergeWithPrevious
+            ? mergeResults(latestResultRef.current, collected)
+            : collected;
+          setLiveTranscript(latestResultRef.current.transcript);
+        }
+      };
+
+      recognition.onerror = (event) => {
+        if (event.error === "not-allowed") {
+          setMicHint(MIC_DENIED_HINT);
+          setListening(false);
+          recognitionRef.current = null;
+          stoppingRef.current = false;
+          return;
+        }
+        if (event.error === "no-speech" || event.error === "aborted") {
+          return;
+        }
+        if (!stoppingRef.current && !holdingRef.current) {
+          setListening(false);
+          recognitionRef.current = null;
+        }
+      };
+
+      recognition.onend = () => {
+        recognitionRef.current = null;
+
+        if (stoppingRef.current) {
+          setListening(false);
+          window.setTimeout(() => deliverResult(), FINALIZE_DELAY_MS);
+          return;
+        }
+
+        if (holdingRef.current) {
+          restartingRef.current = true;
+          window.setTimeout(() => {
+            if (!holdingRef.current || stoppingRef.current) {
+              restartingRef.current = false;
+              setListening(false);
+              return;
+            }
+            try {
+              const SpeechRecognition = getSpeechRecognition();
+              if (!SpeechRecognition) return;
+              const next = new SpeechRecognition();
+              next.lang = "de-DE";
+              next.continuous = true;
+              next.interimResults = true;
+              next.maxAlternatives = 5;
+              attachRecognition(next, true);
+              recognitionRef.current = next;
+              setListening(true);
+              next.start();
+            } catch {
+              restartingRef.current = false;
+              setListening(false);
+            }
+          }, 80);
+          return;
+        }
+
+        setListening(false);
+      };
+    },
+    [deliverResult, holdingRef],
+  );
 
   const stop = useCallback(
     (onFinalize: (result: SpeechResult) => void) => {
       finalizeRef.current = onFinalize;
       stoppingRef.current = true;
+      restartingRef.current = false;
 
       const recognition = recognitionRef.current;
       if (!recognition) {
         setListening(false);
-        deliverResult();
+        window.setTimeout(() => deliverResult(), FINALIZE_DELAY_MS);
         return;
       }
 
@@ -122,7 +209,7 @@ export function useSpeechRecognition() {
       } catch {
         setListening(false);
         recognitionRef.current = null;
-        deliverResult();
+        window.setTimeout(() => deliverResult(), FINALIZE_DELAY_MS);
       }
     },
     [deliverResult],
@@ -143,11 +230,13 @@ export function useSpeechRecognition() {
       } catch {
         // ignore
       }
+      recognitionRef.current = null;
     }
 
     latestResultRef.current = { transcript: "", alternatives: [] };
     setLiveTranscript("");
     stoppingRef.current = false;
+    restartingRef.current = false;
     finalizeRef.current = null;
 
     const recognition = new SpeechRecognition();
@@ -155,38 +244,7 @@ export function useSpeechRecognition() {
     recognition.continuous = true;
     recognition.interimResults = true;
     recognition.maxAlternatives = 5;
-
-    recognition.onresult = (event) => {
-      const collected = snapshotResults(event);
-      if (collected.transcript || collected.alternatives.length > 0) {
-        latestResultRef.current = collected;
-        setLiveTranscript(collected.transcript);
-      }
-    };
-
-    recognition.onerror = (event) => {
-      if (event.error === "not-allowed") {
-        setMicHint(MIC_DENIED_HINT);
-        setListening(false);
-        recognitionRef.current = null;
-        return;
-      }
-      if (event.error === "no-speech" || event.error === "aborted") {
-        return;
-      }
-      if (!stoppingRef.current) {
-        setListening(false);
-        recognitionRef.current = null;
-      }
-    };
-
-    recognition.onend = () => {
-      setListening(false);
-      recognitionRef.current = null;
-      if (stoppingRef.current) {
-        window.setTimeout(() => deliverResult(), 250);
-      }
-    };
+    attachRecognition(recognition, false);
 
     recognitionRef.current = recognition;
     setListening(true);
@@ -199,15 +257,17 @@ export function useSpeechRecognition() {
       recognitionRef.current = null;
       return { ok: false, error: "start-failed" };
     }
-  }, [deliverResult]);
+  }, [attachRecognition]);
 
   useEffect(() => {
     return () => {
+      stoppingRef.current = true;
       try {
         recognitionRef.current?.abort();
       } catch {
         // ignore
       }
+      recognitionRef.current = null;
     };
   }, []);
 

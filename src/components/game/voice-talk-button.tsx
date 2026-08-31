@@ -12,7 +12,8 @@ interface VoiceTalkButtonProps {
 }
 
 export function VoiceTalkButton({ disabled = false, onAnswer, accentClass }: VoiceTalkButtonProps) {
-  const { listening, liveTranscript, micHint, supported, start, stop } = useSpeechRecognition();
+  const holdingRef = useRef(false);
+  const { listening, liveTranscript, micHint, supported, start, stop } = useSpeechRecognition(holdingRef);
   const activePointerRef = useRef<number | null>(null);
   const startingRef = useRef(false);
   const pendingStopRef = useRef(false);
@@ -42,6 +43,7 @@ export function VoiceTalkButton({ disabled = false, onAnswer, accentClass }: Voi
     activePointerRef.current = event.pointerId;
     pendingStopRef.current = false;
     startingRef.current = true;
+    holdingRef.current = true;
     setPressed(true);
     resumeAudio();
     playTalkStartPing();
@@ -57,6 +59,7 @@ export function VoiceTalkButton({ disabled = false, onAnswer, accentClass }: Voi
 
     if (!result.ok) {
       activePointerRef.current = null;
+      holdingRef.current = false;
       setPressed(false);
       if (result.error === "not-allowed") {
         setHint("Mikrofon blockiert — in Chrome: ⋮ → Einstellungen → Website-Einstellungen → Mikrofon erlauben.");
@@ -71,6 +74,7 @@ export function VoiceTalkButton({ disabled = false, onAnswer, accentClass }: Voi
     if (pendingStopRef.current) {
       pendingStopRef.current = false;
       activePointerRef.current = null;
+      holdingRef.current = false;
       setPressed(false);
       stop((speechResult) => submitOrRetry(speechResult.transcript, speechResult.alternatives));
     }
@@ -84,6 +88,7 @@ export function VoiceTalkButton({ disabled = false, onAnswer, accentClass }: Voi
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
     activePointerRef.current = null;
+    holdingRef.current = false;
     setPressed(false);
 
     if (startingRef.current) {
