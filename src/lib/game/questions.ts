@@ -1,6 +1,7 @@
 import type { Country } from "@/lib/countries";
 import { pickRandom, shuffle } from "@/lib/utils";
-import type { Question, QuestionType, TileOption } from "@/lib/game/types";
+import type { Question, QuestionType, AnswerMode, TileOption } from "@/lib/game/types";
+import { VOICE_QUESTION_TYPES } from "@/lib/game/types";
 
 const QUESTION_TYPES: QuestionType[] = [
   "flag_to_country",
@@ -68,15 +69,16 @@ function buildTiles(
   }
 }
 
-export function createQuestion(pool: Country[]): Question {
+export function createQuestion(pool: Country[], answerMode: AnswerMode = "tiles"): Question {
   if (pool.length < 10) {
     throw new Error("Mindestens 10 Länder werden für 9 Kacheln benötigt.");
   }
 
   const country = pickRandom(pool);
-  const type = pickRandom(QUESTION_TYPES);
-  const distractors = pickDistractors(pool, country, 8);
-  const tiles = buildTiles(type, country, distractors);
+  const types = answerMode === "voice" ? VOICE_QUESTION_TYPES : QUESTION_TYPES;
+  const type = pickRandom(types);
+  const distractors = answerMode === "voice" ? [] : pickDistractors(pool, country, 8);
+  const tiles = answerMode === "voice" ? [] : buildTiles(type, country, distractors);
 
   switch (type) {
     case "flag_to_country":

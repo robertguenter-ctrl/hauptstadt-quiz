@@ -90,4 +90,5 @@ export type PlayerActionPayload =
   | { type: "BUZZ" }
   | { type: "SELECT_TILE"; index: number }
   | { type: "CONFIRM_ANSWER" }
-  | { type: "START_GAME" };
+  | { type: "START_GAME" }
+  | { type: "VOICE_ANSWER"; transcript: string; alternatives?: string[] };

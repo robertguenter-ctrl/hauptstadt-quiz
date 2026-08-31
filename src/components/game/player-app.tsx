@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { PLAYER_COLORS, QUESTION_TYPE_LABELS } from "@/lib/game/types";
+import { useState, useEffect } from "react";
+import { PLAYER_COLORS, ANSWER_MODE_LABELS, QUESTION_TYPE_LABELS } from "@/lib/game/types";
 import { AnswerTouchpad } from "@/components/game/answer-touchpad";
+import { VoiceTalkButton } from "@/components/game/voice-talk-button";
 import { usePlayerBuzzAudio } from "@/lib/audio/use-game-audio";
 import { resumeAudio } from "@/lib/audio/game-sounds";
 import { useRoomPlayer } from "@/lib/room/use-room";
@@ -13,11 +14,18 @@ interface PlayerAppProps {
 }
 
 export function PlayerApp({ roomCode }: PlayerAppProps) {
-  const { player, gameState, error, joining, join, buzz, selectTile, confirmAnswer, startGame } =
+  const { player, gameState, error, joining, join, buzz, selectTile, confirmAnswer, startGame, voiceAnswer } =
     useRoomPlayer(roomCode);
   const [name, setName] = useState("");
+  const [voiceSubmitted, setVoiceSubmitted] = useState(false);
 
   usePlayerBuzzAudio(gameState, player?.slot ?? -1);
+
+  useEffect(() => {
+    if (gameState?.phase !== "answering") {
+      setVoiceSubmitted(false);
+    }
+  }, [gameState?.phase, gameState?.activePlayerSlot]);
 
   if (!player) {
     return (
@@ -59,6 +67,9 @@ export function PlayerApp({ roomCode }: PlayerAppProps) {
       <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-slate-950 p-6 text-white">
         <p className={cn("text-2xl font-bold", colors.text)}>{player.name}</p>
         <p className="text-white/60">Warte, bis alle da sind …</p>
+        <p className="text-sm text-white/40">
+          Modus: {ANSWER_MODE_LABELS[gameState?.answerMode ?? "tiles"]}
+        </p>
         <p className="text-4xl font-black text-amber-400">{joinedCount}/4</p>
         {joinedNames.length > 0 && (
           <ul className="text-center text-white/70">
@@ -130,6 +141,25 @@ export function PlayerApp({ roomCode }: PlayerAppProps) {
         <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-slate-950 p-6 text-white">
           <p className="text-2xl font-bold text-white/80">{activeName} ist dran</p>
           <p className="text-white/50">{gameState?.timer}s</p>
+        </div>
+      );
+    }
+
+    if (gameState?.answerMode === "voice") {
+      return (
+        <div className="flex min-h-screen flex-col bg-slate-950 p-4 text-white">
+          <div className="mb-4 text-center">
+            <p className={cn("text-2xl font-bold", colors.text)}>{player.name} — du bist dran!</p>
+            <p className="text-3xl font-bold tabular-nums text-amber-300">{gameState?.timer}s</p>
+          </div>
+          <VoiceTalkButton
+            disabled={voiceSubmitted}
+            accentClass={colors.text}
+            onAnswer={(transcript, alternatives) => {
+              setVoiceSubmitted(true);
+              void voiceAnswer(transcript, alternatives);
+            }}
+          />
         </div>
       );
     }

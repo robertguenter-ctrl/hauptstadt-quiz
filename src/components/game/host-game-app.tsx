@@ -3,8 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { getPlayableCountries } from "@/lib/countries";
 import { fetchCountriesFromSupabase } from "@/lib/supabase/client";
-import { PLAYER_COLORS, QUESTION_TYPE_LABELS } from "@/lib/game/types";
+import { PLAYER_COLORS, ANSWER_MODE_LABELS, QUESTION_TYPE_LABELS } from "@/lib/game/types";
 import { allJoinedExcluded } from "@/lib/game/engine";
+import { getCorrectAnswerLabel } from "@/lib/game/voice-match";
 import { useGameEngine } from "@/lib/game/use-game-engine";
 import { useHostGameAudio } from "@/lib/audio/use-game-audio";
 import { resumeAudio } from "@/lib/audio/game-sounds";
@@ -74,6 +75,32 @@ export function HostGameApp({ roomCode }: HostGameAppProps) {
         </div>
 
         <Scoreboard players={state.players} />
+
+        <div className="flex flex-col items-center gap-3">
+          <p className="text-sm uppercase tracking-widest text-white/40">Antwortmodus</p>
+          <div className="flex gap-3">
+            {(["tiles", "voice"] as const).map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => dispatch({ type: "SET_ANSWER_MODE", mode })}
+                className={cn(
+                  "rounded-xl px-6 py-3 text-lg font-bold transition-colors",
+                  state.answerMode === mode
+                    ? "bg-amber-500 text-black"
+                    : "bg-white/10 text-white hover:bg-white/20",
+                )}
+              >
+                {ANSWER_MODE_LABELS[mode]}
+              </button>
+            ))}
+          </div>
+          <p className="max-w-md text-center text-sm text-white/50">
+            {state.answerMode === "voice"
+              ? "Spieler antworten per Sprache — ohne Flaggen-Auswahl."
+              : "Spieler wählen die Antwort per Touchpad auf dem Handy."}
+          </p>
+        </div>
 
         <p className="text-lg text-white/60">
           {canStart
@@ -158,11 +185,40 @@ export function HostGameApp({ roomCode }: HostGameAppProps) {
         />
       )}
 
+      {state.phase === "result" && state.lastResult?.voiceAnswer && (
+        <div className="mb-6 text-center">
+          <p
+            className={cn(
+              "text-5xl font-black",
+              state.lastResult.correct ? "text-green-400" : "text-red-400",
+            )}
+          >
+            {state.lastResult.correct
+              ? state.lastResult.voiceAnswer.matched
+              : state.lastResult.voiceAnswer.matched ??
+                state.lastResult.voiceAnswer.transcript ||
+                "—"}
+          </p>
+          {state.lastResult.voiceAnswer.transcript &&
+            state.lastResult.voiceAnswer.matched !== state.lastResult.voiceAnswer.transcript && (
+            <p className="mt-2 text-lg text-white/50">
+              Gehört: „{state.lastResult.voiceAnswer.transcript}"
+            </p>
+          )}
+        </div>
+      )}
+
+      {state.phase === "answering" && state.answerMode === "voice" && (
+        <p className="mb-4 text-center text-2xl text-violet-300">Antwort per Sprache …</p>
+      )}
+
       <div className="flex flex-1 flex-col items-center justify-center gap-10 py-8">
         {state.question && (
           <QuestionDisplay question={state.question} phase={state.phase} countdown={state.timer} />
         )}
-        {state.question && (state.phase === "answering" || state.phase === "result") && (
+        {state.question &&
+          state.answerMode === "tiles" &&
+          (state.phase === "answering" || state.phase === "result") && (
           <TileGrid
             question={state.question}
             selectedIndex={state.selectedTileIndex}
@@ -176,11 +232,7 @@ export function HostGameApp({ roomCode }: HostGameAppProps) {
         <p className="text-center text-2xl text-white/70">
           Richtige Antwort:{" "}
           <span className="font-bold text-green-400">
-            {state.question.type === "country_to_capital"
-              ? state.question.country.capital_de
-              : state.question.type === "capital_to_country" || state.question.type === "flag_to_country"
-                ? state.question.country.name_de
-                : `Flagge von ${state.question.country.name_de}`}
+            {getCorrectAnswerLabel(state.question)}
           </span>
         </p>
       )}

@@ -144,6 +144,8 @@ export function useRoomPlayer(roomCode: string) {
     selectTile: (index: number) => sendAction({ type: "SELECT_TILE", index }),
     confirmAnswer: () => sendAction({ type: "CONFIRM_ANSWER" }),
     startGame: () => sendAction({ type: "START_GAME" }),
+    voiceAnswer: (transcript: string, alternatives?: string[]) =>
+      sendAction({ type: "VOICE_ANSWER", transcript, alternatives }),
   };
 }
 
@@ -198,6 +200,18 @@ export function useRoomHost(roomCode: string, state: GameState, dispatch: (a: Ga
           case "START_GAME":
             if (stateRef.current.phase === "lobby" && stateRef.current.players[slot]?.joined) {
               dispatch({ type: "START_GAME" });
+            }
+            break;
+          case "VOICE_ANSWER":
+            if (
+              stateRef.current.activePlayerSlot === slot &&
+              stateRef.current.answerMode === "voice"
+            ) {
+              dispatch({
+                type: "VOICE_ANSWER",
+                transcript: data.action.transcript,
+                alternatives: data.action.alternatives,
+              });
             }
             break;
         }

@@ -1,7 +1,9 @@
 import type { Country } from "@/lib/countries";
 import { createQuestion } from "@/lib/game/questions";
+import { matchVoiceAnswer } from "@/lib/game/voice-match";
 import {
   DEFAULT_CONFIG,
+  type AnswerMode,
   type GameConfig,
   type GameState,
   type Player,
@@ -9,13 +11,15 @@ import {
 
 export type GameAction =
   | { type: "JOIN_PLAYER"; slot: number; name: string; playerId: string }
+  | { type: "SET_ANSWER_MODE"; mode: AnswerMode }
   | { type: "START_GAME" }
   | { type: "RESET_LOBBY" }
   | { type: "TICK" }
   | { type: "BUZZ"; playerSlot: number }
   | { type: "SELECT_TILE"; index: number }
   | { type: "NAVIGATE_TILE"; direction: "up" | "down" | "left" | "right" }
-  | { type: "CONFIRM_ANSWER" };
+  | { type: "CONFIRM_ANSWER" }
+  | { type: "VOICE_ANSWER"; transcript: string; alternatives?: string[] };
 
 export function createInitialPlayers(): Player[] {
   return Array.from({ length: DEFAULT_CONFIG.playerCount }, (_, slot) => ({
@@ -30,6 +34,7 @@ export function createInitialPlayers(): Player[] {
 export function createInitialState(): GameState {
   return {
     phase: "lobby",
+    answerMode: "tiles",
     players: createInitialPlayers(),
     question: null,
     activePlayerSlot: null,
@@ -45,7 +50,7 @@ function startNewQuestion(state: GameState, pool: Country[]): GameState {
   return {
     ...state,
     phase: "countdown",
-    question: createQuestion(pool),
+    question: createQuestion(pool, state.answerMode),
     activePlayerSlot: null,
     excludedSlots: [],
     selectedTileIndex: 4,
@@ -75,7 +80,16 @@ function continueSameQuestion(state: GameState): GameState {
   };
 }
 
-function applyWrongAnswer(state: GameState, config: GameConfig): GameState {
+interface VoiceAnswerMeta {
+  transcript: string;
+  matched: string | null;
+}
+
+function applyWrongAnswer(
+  state: GameState,
+  config: GameConfig,
+  voiceAnswer?: VoiceAnswerMeta,
+): GameState {
   if (state.activePlayerSlot === null) return state;
 
   const players = state.players.map((p) => {
@@ -90,7 +104,46 @@ function applyWrongAnswer(state: GameState, config: GameConfig): GameState {
     timer: 3,
     excludedSlots: [...state.excludedSlots, state.activePlayerSlot],
     activePlayerSlot: null,
-    lastResult: { correct: false, playerSlot: state.activePlayerSlot },
+    lastResult: {
+      correct: false,
+      playerSlot: state.activePlayerSlot,
+      ...(voiceAnswer ? { voiceAnswer } : {}),
+    },
+  };
+}
+
+function applyCorrectAnswer(state: GameState, config: GameConfig, voiceAnswer?: VoiceAnswerMeta): GameState {
+  if (state.activePlayerSlot === null) return state;
+
+  const players = state.players.map((p) => {
+    if (p.slot !== state.activePlayerSlot) return p;
+    return { ...p, score: p.score + 1 };
+  });
+
+  const winner = checkWinner(players, config);
+  const lastResult = {
+    correct: true as const,
+    playerSlot: state.activePlayerSlot,
+    ...(voiceAnswer ? { voiceAnswer } : {}),
+  };
+
+  if (winner !== null) {
+    return {
+      ...state,
+      players,
+      phase: "gameover",
+      winnerSlot: winner,
+      timer: 0,
+      lastResult,
+    };
+  }
+
+  return {
+    ...state,
+    players,
+    phase: "result",
+    timer: 3,
+    lastResult,
   };
 }
 
@@ -114,6 +167,11 @@ export function gameReducer(
       return { ...state, players };
     }
 
+    case "SET_ANSWER_MODE": {
+      if (state.phase !== "lobby") return state;
+      return { ...state, answerMode: action.mode };
+    }
+
     case "START_GAME": {
       const joinedCount = state.players.filter((p) => p.joined).length;
       if (joinedCount < 1) return state;
@@ -128,7 +186,7 @@ export function gameReducer(
         playerId: p.playerId,
         score: 0,
       }));
-      return { ...createInitialState(), players };
+      return { ...createInitialState(), players, answerMode: state.answerMode };
     }
 
     case "TICK": {
@@ -184,13 +242,13 @@ export function gameReducer(
     }
 
     case "SELECT_TILE": {
-      if (state.phase !== "answering") return state;
+      if (state.phase !== "answering" || state.answerMode !== "tiles") return state;
       const index = Math.max(0, Math.min(8, action.index));
       return { ...state, selectedTileIndex: index };
     }
 
     case "NAVIGATE_TILE": {
-      if (state.phase !== "answering") return state;
+      if (state.phase !== "answering" || state.answerMode !== "tiles") return state;
       const columns = 3;
       const total = 9;
       const row = Math.floor(state.selectedTileIndex / columns);
@@ -219,7 +277,12 @@ export function gameReducer(
     }
 
     case "CONFIRM_ANSWER": {
-      if (state.phase !== "answering" || !state.question || state.activePlayerSlot === null) {
+      if (
+        state.phase !== "answering" ||
+        state.answerMode !== "tiles" ||
+        !state.question ||
+        state.activePlayerSlot === null
+      ) {
         return state;
       }
 
@@ -230,31 +293,30 @@ export function gameReducer(
         return applyWrongAnswer(state, config);
       }
 
-      const players = state.players.map((p) => {
-        if (p.slot !== state.activePlayerSlot) return p;
-        return { ...p, score: p.score + 1 };
-      });
+      return applyCorrectAnswer(state, config);
+    }
 
-      const winner = checkWinner(players, config);
-
-      if (winner !== null) {
-        return {
-          ...state,
-          players,
-          phase: "gameover",
-          winnerSlot: winner,
-          timer: 0,
-          lastResult: { correct: true, playerSlot: state.activePlayerSlot },
-        };
+    case "VOICE_ANSWER": {
+      if (
+        state.phase !== "answering" ||
+        state.answerMode !== "voice" ||
+        !state.question ||
+        state.activePlayerSlot === null
+      ) {
+        return state;
       }
 
-      return {
-        ...state,
-        players,
-        phase: "result",
-        timer: 3,
-        lastResult: { correct: true, playerSlot: state.activePlayerSlot },
+      const result = matchVoiceAnswer(state.question, action.transcript, action.alternatives);
+      const voiceAnswer: VoiceAnswerMeta = {
+        transcript: result.transcript,
+        matched: result.matched,
       };
+
+      if (!result.correct) {
+        return applyWrongAnswer(state, config, voiceAnswer);
+      }
+
+      return applyCorrectAnswer(state, config, voiceAnswer);
     }
 
     default:
@@ -270,6 +332,7 @@ export function parseGameState(raw: unknown): GameState | null {
   if (!raw || typeof raw !== "object") return null;
   const s = raw as GameState;
   if (!s.phase || !Array.isArray(s.players)) return null;
+  if (!s.answerMode) s.answerMode = "tiles";
   return s;
 }
 
