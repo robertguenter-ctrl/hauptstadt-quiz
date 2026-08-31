@@ -193,11 +193,10 @@ export function HostGameApp({ roomCode }: HostGameAppProps) {
               state.lastResult.correct ? "text-green-400" : "text-red-400",
             )}
           >
-            {state.lastResult.correct
+            {(state.lastResult.correct
               ? state.lastResult.voiceAnswer.matched
               : state.lastResult.voiceAnswer.matched ??
-                state.lastResult.voiceAnswer.transcript ||
-                "—"}
+                state.lastResult.voiceAnswer.transcript) || "—"}
           </p>
           {state.lastResult.voiceAnswer.transcript &&
             state.lastResult.voiceAnswer.matched !== state.lastResult.voiceAnswer.transcript && (
