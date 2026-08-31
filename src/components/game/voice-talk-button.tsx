@@ -12,7 +12,7 @@ interface VoiceTalkButtonProps {
 }
 
 export function VoiceTalkButton({ disabled = false, onAnswer, accentClass }: VoiceTalkButtonProps) {
-  const { listening, liveTranscript, supported, start, stop } = useSpeechRecognition();
+  const { listening, liveTranscript, micHint, supported, start, stop } = useSpeechRecognition();
   const activePointerRef = useRef<number | null>(null);
   const startingRef = useRef(false);
   const pendingStopRef = useRef(false);
@@ -35,7 +35,7 @@ export function VoiceTalkButton({ disabled = false, onAnswer, accentClass }: Voi
     );
   }
 
-  async function handlePointerDown(event: React.PointerEvent<HTMLButtonElement>) {
+  function handlePointerDown(event: React.PointerEvent<HTMLButtonElement>) {
     event.preventDefault();
     if (disabled || activePointerRef.current !== null) return;
 
@@ -48,24 +48,31 @@ export function VoiceTalkButton({ disabled = false, onAnswer, accentClass }: Voi
     event.currentTarget.setPointerCapture(event.pointerId);
     setHint(null);
 
-    const started = await start();
+    const result = start();
     startingRef.current = false;
 
     if (activePointerRef.current !== event.pointerId) {
       return;
     }
 
-    if (!started) {
+    if (!result.ok) {
       activePointerRef.current = null;
       setPressed(false);
-      setHint("Mikrofon-Zugriff verweigert oder nicht verfügbar.");
+      if (result.error === "not-allowed") {
+        setHint("Mikrofon blockiert — in Chrome: ⋮ → Einstellungen → Website-Einstellungen → Mikrofon erlauben.");
+      } else if (result.error === "unsupported") {
+        setHint("Spracherkennung wird in diesem Browser nicht unterstützt.");
+      } else {
+        setHint("Spracherkennung konnte nicht starten — Seite neu laden und nochmal versuchen.");
+      }
       return;
     }
 
     if (pendingStopRef.current) {
       pendingStopRef.current = false;
       activePointerRef.current = null;
-      stop((result) => submitOrRetry(result.transcript, result.alternatives));
+      setPressed(false);
+      stop((speechResult) => submitOrRetry(speechResult.transcript, speechResult.alternatives));
     }
   }
 
@@ -100,7 +107,7 @@ export function VoiceTalkButton({ disabled = false, onAnswer, accentClass }: Voi
       <button
         type="button"
         disabled={disabled}
-        onPointerDown={(e) => void handlePointerDown(e)}
+        onPointerDown={handlePointerDown}
         onPointerUp={finishListening}
         onPointerCancel={finishListening}
         className={cn(
@@ -116,6 +123,7 @@ export function VoiceTalkButton({ disabled = false, onAnswer, accentClass }: Voi
         <p className={cn("text-lg font-semibold", accentClass ?? "text-red-400")}>Mikrofon aktiv</p>
       )}
       {hint && <p className="max-w-xs text-center text-amber-300">{hint}</p>}
+      {micHint && !hint && <p className="max-w-xs text-center text-amber-300">{micHint}</p>}
     </div>
   );
 }

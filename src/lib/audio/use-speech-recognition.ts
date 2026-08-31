@@ -45,6 +45,10 @@ export interface SpeechResult {
   alternatives: string[];
 }
 
+export type SpeechStartResult =
+  | { ok: true }
+  | { ok: false; error: "unsupported" | "not-allowed" | "start-failed" };
+
 function snapshotResults(event: SpeechRecognitionEventLike): SpeechResult {
   const alternatives: string[] = [];
   let transcript = "";
@@ -76,29 +80,13 @@ function snapshotResults(event: SpeechRecognitionEventLike): SpeechResult {
   return { transcript, alternatives };
 }
 
-let micPermissionPromise: Promise<boolean> | null = null;
-
-async function ensureMicrophoneAccess(): Promise<boolean> {
-  if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
-    return true;
-  }
-
-  if (!micPermissionPromise) {
-    micPermissionPromise = navigator.mediaDevices
-      .getUserMedia({ audio: true })
-      .then((stream) => {
-        for (const track of stream.getTracks()) track.stop();
-        return true;
-      })
-      .catch(() => false);
-  }
-
-  return micPermissionPromise;
-}
+const MIC_DENIED_HINT =
+  "Mikrofon blockiert — in Chrome: ⋮ → Einstellungen → Website-Einstellungen → Mikrofon erlauben.";
 
 export function useSpeechRecognition() {
   const [listening, setListening] = useState(false);
   const [liveTranscript, setLiveTranscript] = useState("");
+  const [micHint, setMicHint] = useState<string | null>(null);
   const [supported, setSupported] = useState(true);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const latestResultRef = useRef<SpeechResult>({ transcript: "", alternatives: [] });
@@ -140,17 +128,14 @@ export function useSpeechRecognition() {
     [deliverResult],
   );
 
-  const start = useCallback(async () => {
+  const start = useCallback((): SpeechStartResult => {
     const SpeechRecognition = getSpeechRecognition();
     if (!SpeechRecognition) {
       setSupported(false);
-      return false;
+      return { ok: false, error: "unsupported" };
     }
 
-    const micOk = await ensureMicrophoneAccess();
-    if (!micOk) {
-      return false;
-    }
+    setMicHint(null);
 
     if (recognitionRef.current) {
       try {
@@ -180,6 +165,12 @@ export function useSpeechRecognition() {
     };
 
     recognition.onerror = (event) => {
+      if (event.error === "not-allowed") {
+        setMicHint(MIC_DENIED_HINT);
+        setListening(false);
+        recognitionRef.current = null;
+        return;
+      }
       if (event.error === "no-speech" || event.error === "aborted") {
         return;
       }
@@ -202,11 +193,11 @@ export function useSpeechRecognition() {
 
     try {
       recognition.start();
-      return true;
+      return { ok: true };
     } catch {
       setListening(false);
       recognitionRef.current = null;
-      return false;
+      return { ok: false, error: "start-failed" };
     }
   }, [deliverResult]);
 
@@ -220,5 +211,5 @@ export function useSpeechRecognition() {
     };
   }, []);
 
-  return { listening, liveTranscript, supported, start, stop };
+  return { listening, liveTranscript, micHint, supported, start, stop };
 }
