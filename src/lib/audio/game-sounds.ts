@@ -31,6 +31,12 @@ function playTone(frequency: number, durationSec: number, type: OscillatorType =
   oscillator.stop(ctx.currentTime + durationSec);
 }
 
+/** Handy: TALK gedrückt — Aufnahme startet */
+export function playTalkStartPing(): void {
+  playTone(1047, 0.06, "sine", 0.22);
+  window.setTimeout(() => playTone(1319, 0.08, "sine", 0.18), 50);
+}
+
 /** Handy: erfolgreich gebuzzert */
 export function playPhoneBuzzSuccess(): void {
   playTone(880, 0.09, "sine", 0.3);

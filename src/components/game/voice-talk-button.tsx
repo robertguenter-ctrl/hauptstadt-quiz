@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useSpeechRecognition } from "@/lib/audio/use-speech-recognition";
+import { playTalkStartPing, resumeAudio } from "@/lib/audio/game-sounds";
 import { cn } from "@/lib/utils";
 
 interface VoiceTalkButtonProps {
@@ -15,6 +16,7 @@ export function VoiceTalkButton({ disabled = false, onAnswer, accentClass }: Voi
   const activePointerRef = useRef<number | null>(null);
   const startingRef = useRef(false);
   const pendingStopRef = useRef(false);
+  const [pressed, setPressed] = useState(false);
   const [hint, setHint] = useState<string | null>(null);
 
   function submitOrRetry(transcript: string, alternatives: string[]) {
@@ -40,6 +42,9 @@ export function VoiceTalkButton({ disabled = false, onAnswer, accentClass }: Voi
     activePointerRef.current = event.pointerId;
     pendingStopRef.current = false;
     startingRef.current = true;
+    setPressed(true);
+    resumeAudio();
+    playTalkStartPing();
     event.currentTarget.setPointerCapture(event.pointerId);
     setHint(null);
 
@@ -52,6 +57,7 @@ export function VoiceTalkButton({ disabled = false, onAnswer, accentClass }: Voi
 
     if (!started) {
       activePointerRef.current = null;
+      setPressed(false);
       setHint("Mikrofon-Zugriff verweigert oder nicht verfügbar.");
       return;
     }
@@ -71,6 +77,7 @@ export function VoiceTalkButton({ disabled = false, onAnswer, accentClass }: Voi
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
     activePointerRef.current = null;
+    setPressed(false);
 
     if (startingRef.current) {
       pendingStopRef.current = true;
@@ -83,7 +90,7 @@ export function VoiceTalkButton({ disabled = false, onAnswer, accentClass }: Voi
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-4">
       <p className="text-center text-white/60">
-        {listening ? "Sprich jetzt …" : "Gedrückt halten und antworten"}
+        {pressed || listening ? "Sprich jetzt …" : "Gedrückt halten und antworten"}
       </p>
       {liveTranscript && (
         <p className={cn("max-w-xs text-center text-2xl font-bold", accentClass ?? "text-white")}>
@@ -98,15 +105,15 @@ export function VoiceTalkButton({ disabled = false, onAnswer, accentClass }: Voi
         onPointerCancel={finishListening}
         className={cn(
           "flex h-64 w-64 touch-none select-none items-center justify-center rounded-full text-4xl font-black shadow-lg active:scale-95 disabled:opacity-40",
-          listening
-            ? "animate-pulse bg-blue-500 shadow-blue-900/50"
-            : "bg-violet-600 shadow-violet-900/50",
+          pressed || listening
+            ? "animate-pulse bg-red-600 shadow-red-900/50 ring-4 ring-red-400/60"
+            : "bg-green-600 shadow-green-900/50 ring-4 ring-green-400/40",
         )}
       >
         TALK
       </button>
-      {accentClass && listening && !liveTranscript && (
-        <p className={cn("text-lg font-semibold", accentClass)}>Mikrofon aktiv</p>
+      {(pressed || listening) && !liveTranscript && (
+        <p className={cn("text-lg font-semibold", accentClass ?? "text-red-400")}>Mikrofon aktiv</p>
       )}
       {hint && <p className="max-w-xs text-center text-amber-300">{hint}</p>}
     </div>
