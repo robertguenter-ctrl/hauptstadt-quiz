@@ -11,9 +11,19 @@ interface VoiceTalkButtonProps {
 }
 
 export function VoiceTalkButton({ disabled = false, onAnswer, accentClass }: VoiceTalkButtonProps) {
-  const { listening, supported, start, stop } = useSpeechRecognition();
-  const holdingRef = useRef(false);
+  const { listening, liveTranscript, supported, start, stop } = useSpeechRecognition();
+  const activePointerRef = useRef<number | null>(null);
+  const startingRef = useRef(false);
+  const pendingStopRef = useRef(false);
   const [hint, setHint] = useState<string | null>(null);
+
+  function submitOrRetry(transcript: string, alternatives: string[]) {
+    if (!transcript.trim()) {
+      setHint("Nicht verstanden — TALK gedrückt halten, deutlich sprechen, loslassen.");
+      return;
+    }
+    onAnswer(transcript, alternatives);
+  }
 
   if (!supported) {
     return (
@@ -23,29 +33,51 @@ export function VoiceTalkButton({ disabled = false, onAnswer, accentClass }: Voi
     );
   }
 
-  function handlePointerDown(event: React.PointerEvent<HTMLButtonElement>) {
+  async function handlePointerDown(event: React.PointerEvent<HTMLButtonElement>) {
     event.preventDefault();
-    if (disabled || holdingRef.current) return;
+    if (disabled || activePointerRef.current !== null) return;
 
-    holdingRef.current = true;
+    activePointerRef.current = event.pointerId;
+    pendingStopRef.current = false;
+    startingRef.current = true;
+    event.currentTarget.setPointerCapture(event.pointerId);
     setHint(null);
-    start();
+
+    const started = await start();
+    startingRef.current = false;
+
+    if (activePointerRef.current !== event.pointerId) {
+      return;
+    }
+
+    if (!started) {
+      activePointerRef.current = null;
+      setHint("Mikrofon-Zugriff verweigert oder nicht verfügbar.");
+      return;
+    }
+
+    if (pendingStopRef.current) {
+      pendingStopRef.current = false;
+      activePointerRef.current = null;
+      stop((result) => submitOrRetry(result.transcript, result.alternatives));
+    }
   }
 
-  function handlePointerUp(event: React.PointerEvent<HTMLButtonElement>) {
+  function finishListening(event: React.PointerEvent<HTMLButtonElement>) {
+    if (activePointerRef.current !== event.pointerId) return;
+
     event.preventDefault();
-    if (!holdingRef.current) return;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    activePointerRef.current = null;
 
-    stop(({ transcript, alternatives }) => {
-      holdingRef.current = false;
+    if (startingRef.current) {
+      pendingStopRef.current = true;
+      return;
+    }
 
-      if (!transcript.trim()) {
-        setHint("Nicht verstanden — TALK gedrückt halten und antworten.");
-        return;
-      }
-
-      onAnswer(transcript, alternatives);
-    });
+    stop((result) => submitOrRetry(result.transcript, result.alternatives));
   }
 
   return (
@@ -53,13 +85,17 @@ export function VoiceTalkButton({ disabled = false, onAnswer, accentClass }: Voi
       <p className="text-center text-white/60">
         {listening ? "Sprich jetzt …" : "Gedrückt halten und antworten"}
       </p>
+      {liveTranscript && (
+        <p className={cn("max-w-xs text-center text-2xl font-bold", accentClass ?? "text-white")}>
+          „{liveTranscript}"
+        </p>
+      )}
       <button
         type="button"
         disabled={disabled}
-        onPointerDown={handlePointerDown}
-        onPointerUp={handlePointerUp}
-        onPointerLeave={handlePointerUp}
-        onPointerCancel={handlePointerUp}
+        onPointerDown={(e) => void handlePointerDown(e)}
+        onPointerUp={finishListening}
+        onPointerCancel={finishListening}
         className={cn(
           "flex h-64 w-64 touch-none select-none items-center justify-center rounded-full text-4xl font-black shadow-lg active:scale-95 disabled:opacity-40",
           listening
@@ -69,7 +105,7 @@ export function VoiceTalkButton({ disabled = false, onAnswer, accentClass }: Voi
       >
         TALK
       </button>
-      {accentClass && listening && (
+      {accentClass && listening && !liveTranscript && (
         <p className={cn("text-lg font-semibold", accentClass)}>Mikrofon aktiv</p>
       )}
       {hint && <p className="max-w-xs text-center text-amber-300">{hint}</p>}

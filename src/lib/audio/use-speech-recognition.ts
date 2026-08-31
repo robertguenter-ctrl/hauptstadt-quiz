@@ -9,6 +9,7 @@ interface SpeechRecognitionResultLike {
 }
 
 interface SpeechRecognitionEventLike {
+  resultIndex: number;
   results: SpeechRecognitionResultList & {
     length: number;
     [index: number]: SpeechRecognitionResultLike;
@@ -44,7 +45,7 @@ export interface SpeechResult {
   alternatives: string[];
 }
 
-function collectFromEvent(event: SpeechRecognitionEventLike): SpeechResult {
+function snapshotResults(event: SpeechRecognitionEventLike): SpeechResult {
   const alternatives: string[] = [];
   let transcript = "";
 
@@ -58,21 +59,46 @@ function collectFromEvent(event: SpeechRecognitionEventLike): SpeechResult {
         alternatives.push(text);
       }
     }
+  }
 
-    if (result.isFinal && result[0]?.transcript) {
-      transcript = result[0].transcript.trim();
+  for (let i = event.results.length - 1; i >= 0; i -= 1) {
+    const text = event.results[i]?.[0]?.transcript?.trim();
+    if (text) {
+      transcript = text;
+      break;
     }
   }
 
-  if (!transcript && alternatives[0]) {
-    transcript = alternatives[0];
+  if (!transcript && alternatives.length > 0) {
+    transcript = alternatives[alternatives.length - 1];
   }
 
   return { transcript, alternatives };
 }
 
+let micPermissionPromise: Promise<boolean> | null = null;
+
+async function ensureMicrophoneAccess(): Promise<boolean> {
+  if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
+    return true;
+  }
+
+  if (!micPermissionPromise) {
+    micPermissionPromise = navigator.mediaDevices
+      .getUserMedia({ audio: true })
+      .then((stream) => {
+        for (const track of stream.getTracks()) track.stop();
+        return true;
+      })
+      .catch(() => false);
+  }
+
+  return micPermissionPromise;
+}
+
 export function useSpeechRecognition() {
   const [listening, setListening] = useState(false);
+  const [liveTranscript, setLiveTranscript] = useState("");
   const [supported, setSupported] = useState(true);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const latestResultRef = useRef<SpeechResult>({ transcript: "", alternatives: [] });
@@ -87,6 +113,7 @@ export function useSpeechRecognition() {
     const callback = finalizeRef.current;
     finalizeRef.current = null;
     stoppingRef.current = false;
+    setLiveTranscript("");
     callback?.(latestResultRef.current);
   }, []);
 
@@ -113,11 +140,16 @@ export function useSpeechRecognition() {
     [deliverResult],
   );
 
-  const start = useCallback(() => {
+  const start = useCallback(async () => {
     const SpeechRecognition = getSpeechRecognition();
     if (!SpeechRecognition) {
       setSupported(false);
-      return;
+      return false;
+    }
+
+    const micOk = await ensureMicrophoneAccess();
+    if (!micOk) {
+      return false;
     }
 
     if (recognitionRef.current) {
@@ -129,6 +161,7 @@ export function useSpeechRecognition() {
     }
 
     latestResultRef.current = { transcript: "", alternatives: [] };
+    setLiveTranscript("");
     stoppingRef.current = false;
     finalizeRef.current = null;
 
@@ -136,12 +169,13 @@ export function useSpeechRecognition() {
     recognition.lang = "de-DE";
     recognition.continuous = true;
     recognition.interimResults = true;
-    recognition.maxAlternatives = 3;
+    recognition.maxAlternatives = 5;
 
     recognition.onresult = (event) => {
-      const collected = collectFromEvent(event);
+      const collected = snapshotResults(event);
       if (collected.transcript || collected.alternatives.length > 0) {
         latestResultRef.current = collected;
+        setLiveTranscript(collected.transcript);
       }
     };
 
@@ -159,7 +193,7 @@ export function useSpeechRecognition() {
       setListening(false);
       recognitionRef.current = null;
       if (stoppingRef.current) {
-        deliverResult();
+        window.setTimeout(() => deliverResult(), 250);
       }
     };
 
@@ -168,9 +202,11 @@ export function useSpeechRecognition() {
 
     try {
       recognition.start();
+      return true;
     } catch {
       setListening(false);
       recognitionRef.current = null;
+      return false;
     }
   }, [deliverResult]);
 
@@ -184,5 +220,5 @@ export function useSpeechRecognition() {
     };
   }, []);
 
-  return { listening, supported, start, stop };
+  return { listening, liveTranscript, supported, start, stop };
 }
