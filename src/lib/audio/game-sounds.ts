@@ -69,10 +69,17 @@ export function vibrateBuzzSuccess(): void {
   }
 }
 
-/** TV: richtige Antwort bestätigt */
+/** Richtige Antwort — kurzer Erfolgston */
 export function playCorrectJingle(): void {
   const notes = [523, 659, 784, 1047];
   notes.forEach((freq, i) => {
     window.setTimeout(() => playTone(freq, 0.18, "sine", 0.22), i * 110);
   });
+}
+
+/** Falsche Antwort — typischer Fehleralarm */
+export function playWrongAlarm(): void {
+  playTone(330, 0.14, "square", 0.28);
+  window.setTimeout(() => playTone(262, 0.14, "square", 0.28), 140);
+  window.setTimeout(() => playTone(196, 0.32, "sawtooth", 0.24), 300);
 }

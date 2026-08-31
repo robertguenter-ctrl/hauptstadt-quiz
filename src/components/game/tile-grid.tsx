@@ -8,6 +8,7 @@ interface ActivePlayerBannerProps {
   playerName: string;
   phase: GamePhase;
   timer?: number;
+  resultCorrect?: boolean;
 }
 
 export function ActivePlayerBanner({
@@ -15,15 +16,18 @@ export function ActivePlayerBanner({
   playerName,
   phase,
   timer,
+  resultCorrect,
 }: ActivePlayerBannerProps) {
   const colors = PLAYER_COLORS[playerSlot];
 
   return (
     <div
       className={cn(
-        "mb-6 rounded-2xl border-4 border-transparent bg-white/5 px-8 py-5 text-center",
-        "ring-4",
-        colors.ring,
+        "mb-6 rounded-2xl border-4 bg-white/5 px-8 py-5 text-center",
+        phase === "result" && resultCorrect === true && "animate-correct-blink border-green-400",
+        phase === "result" && resultCorrect === false && "animate-wrong-blink border-red-400",
+        (phase !== "result" || resultCorrect === undefined) && "border-transparent ring-4",
+        (phase !== "result" || resultCorrect === undefined) && colors.ring,
       )}
     >
       <p className="text-sm font-semibold uppercase tracking-widest text-white/50">

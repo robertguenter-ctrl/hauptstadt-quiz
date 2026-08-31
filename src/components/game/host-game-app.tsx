@@ -5,6 +5,8 @@ import { getPlayableCountries } from "@/lib/countries";
 import { fetchCountriesFromSupabase } from "@/lib/supabase/client";
 import { PLAYER_COLORS, QUESTION_TYPE_LABELS } from "@/lib/game/types";
 import { allJoinedExcluded } from "@/lib/game/engine";
+import { getSubmittedAnswerLabel } from "@/lib/game/answer-label";
+import { useResultReveal } from "@/lib/game/use-result-reveal";
 import { getCorrectAnswerLabel } from "@/lib/game/voice-match";
 import { useGameEngine } from "@/lib/game/use-game-engine";
 import { useHostGameAudio } from "@/lib/audio/use-game-audio";
@@ -27,6 +29,7 @@ export function HostGameApp({ roomCode }: HostGameAppProps) {
 
   useRoomHost(roomCode, state, dispatch);
   useHostGameAudio(state);
+  const resultRevealed = useResultReveal(state);
 
   useEffect(() => {
     fetchCountriesFromSupabase().then((remote) => {
@@ -48,13 +51,17 @@ export function HostGameApp({ roomCode }: HostGameAppProps) {
       case "answering":
         return `${state.players[state.activePlayerSlot!]?.name ?? "Spieler"} antwortet — ${state.timer}s`;
       case "result":
-        return state.lastResult?.correct ? "Richtig!" : "Falsch!";
+        return resultRevealed
+          ? state.lastResult?.correct
+            ? "Richtig!"
+            : "Falsch!"
+          : "Antwort …";
       case "gameover":
         return `${state.players[state.winnerSlot!]?.name ?? "Spieler"} gewinnt!`;
       default:
         return "";
     }
-  }, [state, joinedCount]);
+  }, [state, joinedCount, resultRevealed]);
 
   function playerName(slot: number): string {
     return state.players[slot]?.name ?? PLAYER_COLORS[slot].name;
@@ -142,7 +149,12 @@ export function HostGameApp({ roomCode }: HostGameAppProps) {
             state.phase === "buzzer" && "animate-pulse bg-red-500",
             state.phase === "countdown" && "bg-amber-500 text-black",
             state.phase === "answering" && "bg-blue-500",
-            state.phase === "result" && (state.lastResult?.correct ? "bg-green-500" : "bg-red-500"),
+            state.phase === "result" &&
+              (resultRevealed
+                ? state.lastResult?.correct
+                  ? "bg-green-500"
+                  : "bg-red-500"
+                : "bg-white/20 text-white/80"),
           )}
         >
           {phaseLabel}
@@ -165,23 +177,27 @@ export function HostGameApp({ roomCode }: HostGameAppProps) {
           playerSlot={state.lastResult.playerSlot}
           playerName={playerName(state.lastResult.playerSlot)}
           phase="result"
+          resultCorrect={resultRevealed ? state.lastResult.correct : undefined}
         />
       )}
 
-      {state.phase === "result" && state.lastResult?.voiceAnswer && (
+      {state.phase === "result" && state.lastResult && (
         <div className="mb-6 text-center">
+          <p className="text-xl text-white/60">Antwort</p>
           <p
             className={cn(
-              "text-5xl font-black",
-              state.lastResult.correct ? "text-green-400" : "text-red-400",
+              "mt-2 text-6xl font-black",
+              resultRevealed
+                ? state.lastResult.correct
+                  ? "animate-answer-glow-correct text-green-400"
+                  : "animate-answer-glow-wrong text-red-400"
+                : "text-white",
             )}
           >
-            {(state.lastResult.correct
-              ? state.lastResult.voiceAnswer.matched
-              : state.lastResult.voiceAnswer.matched ??
-                state.lastResult.voiceAnswer.transcript) || "—"}
+            {getSubmittedAnswerLabel(state)}
           </p>
-          {state.lastResult.voiceAnswer.transcript &&
+          {resultRevealed &&
+            state.lastResult.voiceAnswer?.transcript &&
             state.lastResult.voiceAnswer.matched !== state.lastResult.voiceAnswer.transcript && (
             <p className="mt-2 text-lg text-white/50">
               Gehört: „{state.lastResult.voiceAnswer.transcript}"
@@ -204,13 +220,17 @@ export function HostGameApp({ roomCode }: HostGameAppProps) {
           <TileGrid
             question={state.question}
             selectedIndex={state.selectedTileIndex}
-            revealCorrect={state.phase === "result" && (state.lastResult?.correct === true || allExcluded)}
-            showWrongSelection={isWrongResult === true}
+            revealCorrect={
+              resultRevealed &&
+              state.phase === "result" &&
+              (state.lastResult?.correct === true || allExcluded)
+            }
+            showWrongSelection={resultRevealed && isWrongResult === true}
           />
         )}
       </div>
 
-      {isWrongResult && allExcluded && state.question && (
+      {resultRevealed && isWrongResult && allExcluded && state.question && (
         <p className="text-center text-2xl text-white/70">
           Richtige Antwort:{" "}
           <span className="font-bold text-green-400">

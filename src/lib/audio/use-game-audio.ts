@@ -3,7 +3,6 @@
 import { useEffect, useRef } from "react";
 import type { GameState } from "@/lib/game/types";
 import {
-  playCorrectJingle,
   playPhoneBuzzSuccess,
   playTvBuzzSound,
   speakPlayerName,
@@ -12,7 +11,6 @@ import {
 
 export function useHostGameAudio(state: GameState) {
   const lastBuzzKeyRef = useRef<string | null>(null);
-  const lastCorrectKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (state.phase !== "answering" || state.activePlayerSlot === null) return;
@@ -29,21 +27,8 @@ export function useHostGameAudio(state: GameState) {
   useEffect(() => {
     if (state.phase === "buzzer" || state.phase === "countdown" || state.phase === "lobby") {
       lastBuzzKeyRef.current = null;
-      lastCorrectKeyRef.current = null;
     }
   }, [state.phase]);
-
-  useEffect(() => {
-    const isCorrectResult =
-      (state.phase === "result" || state.phase === "gameover") && state.lastResult?.correct;
-    if (!isCorrectResult || state.activePlayerSlot === null) return;
-
-    const key = `${state.question?.country.id ?? "q"}-${state.activePlayerSlot}-correct`;
-    if (lastCorrectKeyRef.current === key) return;
-    lastCorrectKeyRef.current = key;
-
-    playCorrectJingle();
-  }, [state.phase, state.lastResult, state.activePlayerSlot, state.question?.country.id]);
 }
 
 export function usePlayerBuzzAudio(gameState: GameState | null, playerSlot: number) {

@@ -38,3 +38,47 @@ body {
 .animate-correct-blink {
   animation: correct-blink 0.75s ease-in-out infinite;
 }
+
+@keyframes wrong-blink {
+  0%,
+  100% {
+    box-shadow: 0 0 0 4px rgb(248 113 113 / 0.9);
+    border-color: rgb(248 113 113 / 0.9);
+  }
+  50% {
+    box-shadow: 0 0 0 14px rgb(248 113 113 / 0.15);
+    border-color: rgb(252 165 165 / 0.5);
+  }
+}
+
+.animate-wrong-blink {
+  animation: wrong-blink 0.75s ease-in-out infinite;
+}
+
+@keyframes answer-glow-correct {
+  0%,
+  100% {
+    box-shadow: 0 0 24px rgb(74 222 128 / 0.55);
+  }
+  50% {
+    box-shadow: 0 0 40px rgb(74 222 128 / 0.85);
+  }
+}
+
+@keyframes answer-glow-wrong {
+  0%,
+  100% {
+    box-shadow: 0 0 24px rgb(248 113 113 / 0.55);
+  }
+  50% {
+    box-shadow: 0 0 40px rgb(248 113 113 / 0.85);
+  }
+}
+
+.animate-answer-glow-correct {
+  animation: answer-glow-correct 0.9s ease-in-out infinite;
+}
+
+.animate-answer-glow-wrong {
+  animation: answer-glow-wrong 0.9s ease-in-out infinite;
+}
